@@ -1,5 +1,12 @@
 "use client";
 
+import type { UIActionResult } from "@mcp-ui/client";
+import {
+  basicComponentLibrary,
+  remoteButtonDefinition,
+  remoteTextDefinition,
+  UIResourceRenderer,
+} from "@mcp-ui/client";
 import { ArrowRight, LinkRounded, OpenInNew } from "@mui/icons-material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import type { StepIconProps } from "@mui/material";
@@ -18,6 +25,7 @@ import {
   Typography,
 } from "@mui/material";
 import { keyframes } from "@mui/material/styles";
+import type { GridColDef } from "@mui/x-data-grid";
 import Link from "next/link";
 import React, {
   useCallback,
@@ -250,6 +258,10 @@ export const ChatContainer = ({
   hasData = false, // added to handle no data case
   metadata, // metadata for follow-ups
   // data, // data for the table, if needed
+  queryId,
+  minimized,
+  setMinimized,
+  resource,
 }: {
   id: string;
   newCol?: boolean;
@@ -259,6 +271,10 @@ export const ChatContainer = ({
   // rowCount?: number;
   metadata?: any; // metadata for follow-ups
   hasData?: boolean; // added to handle no data case
+  queryId?: string;
+  minimized?: boolean;
+  setMinimized?: (minimized: boolean) => void;
+  resource?: any;
 }) => {
   const { mode, isLarge } = useContext(ThemeContext);
   const {
@@ -269,12 +285,14 @@ export const ChatContainer = ({
     handleKeyDown,
     handleChange,
     onSelectColumn,
+    onSelectRow,
     sects,
     scrollRef,
     setPromptVal,
     isLoading,
     requestId,
     setRequestId,
+    setSelectionModel,
   } = useChatSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -484,6 +502,50 @@ export const ChatContainer = ({
 
   const [val, setVal] = useState<string>();
 
+  const onUIAction = (result: UIActionResult) => {
+    console.log("UI Action result", result);
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "view.minimize"
+    ) {
+      setMinimized?.(true);
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "view.expand"
+    ) {
+      setMinimized?.(false);
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "table.select.column"
+    ) {
+      setSelectionModel([]); // Clear row selection on column select
+      onSelectRow(undefined);
+      const col: GridColDef = JSON.parse(
+        (result?.payload as any)?.meta?.column,
+      );
+      if (activeColumn && activeColumn.field === col.field) {
+        onSelectColumn(null);
+      } else {
+        onSelectColumn(col);
+      }
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "table.select.row"
+    ) {
+      onSelectRow((result?.payload as any)?.meta?.row);
+      setSelectionModel(
+        (result?.payload as any)?.meta?.row
+          ? (result?.payload as any)?.meta?.row.map((r: any) => r.id)
+          : [],
+      ); // Set selection to the clicked row
+      onSelectColumn(null);
+    }
+    return Promise.resolve(true);
+  };
+
   return (
     <Paper
       elevation={0}
@@ -492,6 +554,7 @@ export const ChatContainer = ({
         mt: hasData ? 0 : 0, // add margin-top only when no data
         pt: hasData ? 1 : 1, // add margin-top only when no data
         // mb: 2,
+        // eslint-disable-next-line no-nested-ternary
         height: isLarge
           ? hasData
             ? "calc(100vh - 50px)" // constrained when in split view
@@ -589,6 +652,24 @@ export const ChatContainer = ({
                                   idx === sects.length - 1
                                 }
                               />
+                              {section?.query?.query_id === queryId &&
+                                minimized &&
+                                resource?.resource && (
+                                  <UIResourceRenderer
+                                    htmlProps={{
+                                      style: { height: 250 },
+                                    }}
+                                    resource={resource?.resource}
+                                    onUIAction={onUIAction}
+                                    remoteDomProps={{
+                                      library: basicComponentLibrary,
+                                      remoteElements: [
+                                        remoteButtonDefinition,
+                                        remoteTextDefinition,
+                                      ],
+                                    }}
+                                  />
+                                )}
                             </Box>
                           )}
                           {i % 2 !== 0 &&

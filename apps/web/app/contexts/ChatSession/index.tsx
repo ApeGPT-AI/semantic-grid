@@ -25,6 +25,7 @@ import React, {
 
 import { createRequest } from "@/app/actions";
 import { increaseTrialCount } from "@/app/chat/actions";
+import { StyledValue } from "@/app/components/StyledValue";
 import { AppContext } from "@/app/contexts/App";
 import { TutorialSteps, useTutorial } from "@/app/contexts/Tutorial";
 import { isSolanaAddress, isSolanaSignature } from "@/app/helpers/cell";
@@ -37,8 +38,6 @@ import type {
   TColumn,
   TResponseResult,
 } from "@/app/lib/types";
-
-import { StyledValue } from "@/app/components/StyledValue";
 
 export const options: Record<
   string,
@@ -727,7 +726,7 @@ export const ChatSessionProvider = ({
   };
 
   const context = useMemo(() => {
-    // console.log("ctx", activeRows);
+    console.log("ctx", activeRows, activeColumn, gridColumns);
     if (activeColumn?.field === "__add_column__")
       return `${activeColumn?.headerName}` || "New column";
     if (activeColumn && activeColumn.headerName !== "General")
@@ -747,7 +746,7 @@ export const ChatSessionProvider = ({
   }, [activeRows, activeColumn, gridColumns]);
 
   useEffect(() => {
-    // console.log("context", context);
+    console.log("context", context);
   }, [context]);
 
   const requestType = () => {

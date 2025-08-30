@@ -1,6 +1,16 @@
 "use client";
 
 import {
+  basicComponentLibrary,
+  remoteButtonDefinition,
+  remoteTextDefinition,
+  type UIActionResult,
+  UIResourceRenderer,
+} from "@mcp-ui/client";
+import { Client } from "@modelcontextprotocol/sdk/client";
+// @ts-ignore
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse";
+import {
   Box,
   Container,
   Paper,
@@ -10,6 +20,7 @@ import {
   Tab,
   Tabs,
 } from "@mui/material";
+import type { GridColDef } from "@mui/x-data-grid";
 import { useRouter } from "next/navigation";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,7 +33,6 @@ import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import type { TColumn } from "@/app/lib/types";
 import { ChatContainer } from "@/app/query/[id]/chat-container";
 import { QueryBox } from "@/app/query/[id]/query-box";
-import { DataTable } from "@/app/query/[id]/table";
 
 export interface IInteractiveDashboardProps {
   // user?: Claims | null;
@@ -85,10 +95,16 @@ export const InteractiveDashboard = ({
     setSize,
     scrollToBottom,
     requestId,
+    activeColumn,
+    setSelectionModel,
+    activeRows,
+    onSelectRow,
+    onSelectColumn,
   } = useChatSession();
   const { mode, isLarge } = useContext(ThemeContext);
   const { tab, setTab } = useContext(AppContext);
   const [panel, setPanel] = useState(0);
+  const [minimized, setMinimized] = useState(false);
   const [leftWidth, setLeftWidth] = useLocalStorage<string>(
     `apegpt-left-width-${id}`,
     "",
@@ -107,12 +123,51 @@ export const InteractiveDashboard = ({
   const router = useRouter();
   const { currentProgressStep } = useTutorial();
 
+  const [client, setClient] = useState<Client>();
+  const [resource, setResource] = useState<any>(null);
+
+  const transport = useMemo(
+    () => new SSEClientTransport(new URL("http://localhost:3000/mcp/sse")),
+    [],
+  );
+
+  useEffect(() => {
+    if (client) {
+      return;
+    }
+
+    const c = new Client({
+      name: "example-client",
+      version: "1.0.0",
+    });
+    c.connect(transport)
+      .then(() => {
+        console.log("connected to MCP-UI server!");
+        setClient(c);
+      })
+      .catch(console.log);
+  }, [transport, client]);
+
   const query = useMemo(() => {
-    if (!requestId || !sections || sections.length === 0) {
+    if (!sections || sections.length === 0) {
       return null;
     }
-    return sections.find((s) => s.requestId === requestId)?.query || null;
+    const selected =
+      sections.find((s) => s.requestId === requestId)?.query || null;
+    if (selected) {
+      return selected;
+    }
+
+    return sections[sections.length - 1]?.query || null;
   }, [sections, requestId]);
+
+  useEffect(() => {
+    if (minimized) {
+      if (query?.query_id) {
+        // setMinimized(false);
+      }
+    }
+  }, [query]);
 
   useEffect(() => {
     if (currentProgressStep && currentProgressStep[1]?.sessionId) {
@@ -298,6 +353,78 @@ export const InteractiveDashboard = ({
     setPanel(newValue);
   };
 
+  useEffect(() => {
+    if (!client || !query) {
+      return;
+    }
+    // console.log("query changed, fetching resource", query?.query_id);
+
+    (async () => {
+      // await client.connect(transport);
+      // console.log("connected to MCP-UI server!");
+      const tools = await client.listTools();
+      // console.log("listTools", tools);
+
+      const resource = await client.callTool({
+        name: "query",
+        arguments: {
+          queryId: query?.query_id,
+          view: minimized ? "minimized" : "expanded",
+        },
+      });
+      // @ts-ignore
+      // console.log("resource", resource?.content?.[0]);
+      // @ts-ignore
+      setResource(resource?.content?.[0]);
+    })().catch(console.log);
+  }, [client, query, minimized]);
+
+  // console.log("resource", resource, "minimized", minimized);
+
+  const onUIAction = (result: UIActionResult) => {
+    console.log("UI Action result", result);
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "view.minimize"
+    ) {
+      setMinimized?.(true);
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "view.expand"
+    ) {
+      setMinimized?.(false);
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "table.select.column"
+    ) {
+      setSelectionModel([]); // Clear row selection on column select
+      onSelectRow(undefined);
+      const col: GridColDef = JSON.parse(
+        (result?.payload as any)?.meta?.column,
+      );
+      if (activeColumn && activeColumn.field === col.field) {
+        onSelectColumn(null);
+      } else {
+        onSelectColumn(col);
+      }
+    }
+    if (
+      result.type === "tool" &&
+      (result?.payload as any)?.meta?.action === "table.select.row"
+    ) {
+      onSelectRow((result?.payload as any)?.meta?.row);
+      setSelectionModel(
+        (result?.payload as any)?.meta?.row
+          ? (result?.payload as any)?.meta?.row.map((r: any) => r.id)
+          : [],
+      ); // Set selection to the clicked row
+      onSelectColumn(null);
+    }
+    return Promise.resolve(true);
+  };
+
   // we need to determine if the new query is an ancestor or a successor and set the slide direction accordingly
 
   return isLarge ? (
@@ -339,12 +466,16 @@ export const InteractiveDashboard = ({
             pendingRequest={pendingRequest}
             hasData={hasData}
             metadata={metadata}
+            queryId={query?.query_id}
+            minimized={minimized}
+            setMinimized={setMinimized}
+            resource={resource}
           />
         </Container>
       </Box>
 
       {/* Divider handle */}
-      {hasData && (
+      {hasData && !minimized && (
         <Box
           component="div"
           // @ts-ignore
@@ -359,7 +490,7 @@ export const InteractiveDashboard = ({
       )}
 
       {/* Right panel -- table */}
-      {hasData && (
+      {hasData && !minimized && (
         <Box
           sx={{
             // marginTop: "80px", // padding to avoid overlap with app bar
@@ -387,7 +518,20 @@ export const InteractiveDashboard = ({
                     }}
                     ref={gridRef}
                   >
-                    <DataTable />
+                    {/* <DataTable /> */}
+                    {resource?.resource && (
+                      <UIResourceRenderer
+                        resource={resource?.resource}
+                        onUIAction={onUIAction}
+                        remoteDomProps={{
+                          library: basicComponentLibrary,
+                          remoteElements: [
+                            remoteButtonDefinition,
+                            remoteTextDefinition,
+                          ],
+                        }}
+                      />
+                    )}
                     <Popover
                       open={!!contextMenu}
                       onClose={handleClose}
@@ -494,7 +638,18 @@ export const InteractiveDashboard = ({
               <Box>
                 <Container disableGutters maxWidth={false}>
                   <Box ref={gridRef}>
-                    <DataTable />
+                    {/* <DataTable /> */}
+                    <UIResourceRenderer
+                      resource={resource?.resource}
+                      onUIAction={onUIAction}
+                      remoteDomProps={{
+                        library: basicComponentLibrary,
+                        remoteElements: [
+                          remoteButtonDefinition,
+                          remoteTextDefinition,
+                        ],
+                      }}
+                    />
                   </Box>
                 </Container>
               </Box>

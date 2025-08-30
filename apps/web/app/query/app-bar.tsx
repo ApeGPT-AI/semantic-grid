@@ -1,6 +1,5 @@
 "use client";
 
-import { Code, TableRows } from "@mui/icons-material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import type { AppBarProps, SelectChangeEvent } from "@mui/material";
 import {
@@ -254,6 +253,7 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
       elevation={0}
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
+        bgcolor: mode === "dark" ? "transparent" : "#E9e8e6",
         // borderBottom: (theme) =>
         // `1px solid ${alpha(theme.palette.text.disabled, 0.2)}`,
       }}
@@ -377,7 +377,7 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
           </Menu>
         </Stack>
         <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
-          {isLarge && (
+          {/* isLarge && (
             <Tooltip title="Toggle table/SQL view">
               <IconButton
                 onClick={toggleTab}
@@ -387,7 +387,7 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
                 {tab !== 1 ? <Code /> : <TableRows />}
               </IconButton>
             </Tooltip>
-          )}
+          ) */}
           <Tooltip title="Toggle light/dark mode">
             <IconButton onClick={toggleTheme} color="inherit">
               <Box component={ToggleMode} sx={{ color: "text.secondary" }} />

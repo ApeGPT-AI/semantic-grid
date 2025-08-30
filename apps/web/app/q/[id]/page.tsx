@@ -37,15 +37,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const QueryPage = async ({ params: { id } }: { params: { id: string } }) => {
+const QueryPage = async ({
+  params: { id },
+  searchParams: { embed, view },
+}: {
+  params: { id: string };
+  searchParams: { embed: string; view?: string };
+}) => {
   const query = await getQueryById(id);
-  console.log("query", query);
+  console.log("query", query, embed);
 
   return (
-    <Suspense fallback={<div>Loading messages...</div>}>
+    <Suspense fallback={<></>}>
       <QueryDataProvider query={query} queryId={id}>
-        <AppBar id={id} />
-        <QueryContainer key={id} id={id} query={query} />
+        <AppBar
+          id={id}
+          embed={embed === "true"}
+          expanded={view === "expanded"}
+        />
+        <QueryContainer
+          key={id}
+          id={id}
+          query={query}
+          embed={embed === "true"}
+          expanded={view === "expanded"}
+        />
       </QueryDataProvider>
     </Suspense>
   );

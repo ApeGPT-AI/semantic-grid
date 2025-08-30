@@ -40,6 +40,19 @@ const CustomFooter = ({ isFetchingMore }: { isFetchingMore: boolean }) => {
   );
 };
 
+function deepClone<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (obj instanceof Date) return new Date(obj.getTime()) as any;
+  if (Array.isArray(obj)) return obj.map(deepClone) as any;
+
+  const cloned: any = {};
+  for (const key in obj) {
+    const value = (obj as any)[key];
+    cloned[key] = typeof value === "function" ? value : deepClone(value);
+  }
+  return cloned;
+}
+
 export const DataTable = () => {
   const {
     rows,
@@ -114,6 +127,20 @@ export const DataTable = () => {
         }
         setSelectionModel([]); // ⬅️ Clears all selected rows
         setActiveRow(undefined); // Clear active row on column header click
+        window.parent.postMessage(
+          {
+            type: "tool",
+            payload: {
+              toolName: "uiInteraction",
+              params: { action: "button-click", from: "remote-dom" },
+              meta: {
+                action: "table.select.column",
+                column: JSON.stringify(params.colDef),
+              },
+            },
+          },
+          "*",
+        );
       }}
       onCellClick={(
         params: GridCellParams,
@@ -124,14 +151,56 @@ export const DataTable = () => {
         if (selectionModel.includes(params.row.id)) {
           setActiveRow(undefined); // Clear active row if already selected
           setSelectionModel([]); // Clear selection if the same row is clicked again
+          window.parent.postMessage(
+            {
+              type: "tool",
+              payload: {
+                toolName: "uiInteraction",
+                params: { action: "button-click", from: "remote-dom" },
+                meta: {
+                  action: "table.select.row",
+                  row: undefined,
+                },
+              },
+            },
+            "*",
+          );
         } else if (mouseEvent.shiftKey || mouseEvent.ctrlKey) {
           setActiveRow((rr: any) => (rr ? [...rr, params.row] : [params.row]));
           setSelectionModel((rr: any) =>
             rr ? [...rr, params.row.id] : [params.row.id],
           );
+          window.parent.postMessage(
+            {
+              type: "tool",
+              payload: {
+                toolName: "uiInteraction",
+                params: { action: "button-click", from: "remote-dom" },
+                meta: {
+                  action: "table.select.row",
+                  row: activeRows ? [...activeRows, params.row] : [params.row],
+                },
+              },
+            },
+            "*",
+          );
         } else {
           setActiveRow([params.row]);
           setSelectionModel([params.row.id]); // Set selection to the clicked row
+          window.parent.postMessage(
+            {
+              type: "tool",
+              payload: {
+                toolName: "uiInteraction",
+                params: { action: "button-click", from: "remote-dom" },
+                meta: {
+                  action: "table.select.row",
+                  row: [params.row],
+                },
+              },
+            },
+            "*",
+          );
         }
       }}
       getRowClassName={(params) => {

@@ -20,6 +20,9 @@
     "@emotion/styled": "^11.6.0",
     "@langchain/anthropic": "^0.3.6",
     "@langchain/core": "^0.3.15",
+    "@mcp-ui/client": "^5.9.0",
+    "@mcp-ui/server": "^5.10.0",
+    "@modelcontextprotocol/sdk": "^1.13.3",
     "@mui/icons-material": "^5.16.7",
     "@mui/lab": "^5.0.0-alpha.173",
     "@mui/material": "^5.16.7",
@@ -38,6 +41,7 @@
     "highlight.js": "^11.11.1",
     "jose": "^6.0.10",
     "jwt-decode": "^4.0.0",
+    "mcp-handler": "^1.0.2",
     "next": "^14.2.15",
     "nodemailer": "^6.10.0",
     "openapi-fetch": "^0.13.0",
@@ -48,9 +52,11 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
     "swr": "^2.2.5",
-    "uuid": "^11.0.2"
+    "uuid": "^11.0.2",
+    "zod": "3.25.76"
   },
   "devDependencies": {
+    "@eslint-community/eslint-utils": "^4.4.0",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^18.19.31",
     "@types/nodemailer": "^6.4.17",
@@ -75,7 +81,6 @@
     "next-sitemap": "^3.1.24",
     "openapi-typescript": "^7.4.2",
     "prettier": "^3.2.5",
-    "typescript": "^5.0.4",
-    "@eslint-community/eslint-utils": "^4.4.0"
+    "typescript": "^5.0.4"
   }
 }

@@ -12,6 +12,8 @@ import { DataTable } from "@/app/q/[id]/table";
 export interface IQueryContainerProps {
   query?: any; // TODO: define type
   id?: string;
+  embed?: boolean;
+  expanded?: boolean;
 }
 
 interface TabPanelProps {
@@ -36,7 +38,12 @@ const CustomTabPanel = (props: TabPanelProps) => {
   );
 };
 
-export const QueryContainer = ({ id, query }: IQueryContainerProps) => {
+export const QueryContainer = ({
+  id,
+  query,
+  embed,
+  expanded,
+}: IQueryContainerProps) => {
   const { tab } = useContext(AppContext);
 
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -79,12 +86,13 @@ export const QueryContainer = ({ id, query }: IQueryContainerProps) => {
     <Box
       sx={{
         marginTop: "50px", // padding to avoid overlap with app bar
-        height: "calc(100vh - 50px)",
+        height: expanded && !embed ? "calc(100vh - 50px)" : "auto",
         // overflow: "hidden",
       }}
     >
       <Box sx={{ overflow: "hidden" }}>
         <Container
+          disableGutters={!expanded}
           sx={{
             position: "relative",
             width: "100%",

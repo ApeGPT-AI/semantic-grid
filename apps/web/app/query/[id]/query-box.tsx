@@ -72,6 +72,7 @@ const StyledPopper = styled(Popper)(({ theme }) => ({
 }));
 
 const enrichedContext = (selectedAction: string, context: string) => {
+  console.log("enrichedContext", context);
   if (context && context !== "General") {
     const contextParts = context.split(" ");
     const processedContextParts = contextParts.map((part) => {

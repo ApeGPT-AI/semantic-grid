@@ -1,6 +1,7 @@
 "use client";
 
-import { Code, TableRows } from "@mui/icons-material";
+import { Close, Code, TableRows } from "@mui/icons-material";
+import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import type { AppBarProps } from "@mui/material";
 import {
   Alert,
@@ -57,7 +58,7 @@ const ConstantAppBar = styled(AppBar, {
   shouldForwardProp: (prop) => prop !== "open",
 })<StyledAppBarProps>(() => ({}));
 
-const ApplicationBar = ({ id }: any) => {
+const ApplicationBar = ({ id, embed, expanded }: any) => {
   const router = useRouter();
   const { mode, setMode, isLarge } = useContext(ThemeContext);
   const { user, authUser, error } = useAppUser();
@@ -131,6 +132,22 @@ const ApplicationBar = ({ id }: any) => {
     }
   };
 
+  const toggleExpanded = () => {
+    window.parent.postMessage(
+      {
+        type: "tool",
+        payload: {
+          toolName: "uiInteraction",
+          params: { action: "button-click", from: "remote-dom" },
+          meta: {
+            action: expanded ? "view.minimize" : "view.expand",
+          },
+        },
+      },
+      "*",
+    );
+  };
+
   const AppBar = isLarge ? StyledAppBar : ConstantAppBar;
 
   return (
@@ -154,67 +171,43 @@ const ApplicationBar = ({ id }: any) => {
           sx={{ flexGrow: 1, alignItems: "center" }}
           spacing={2}
         >
-          {/* <Box
-            component={Link}
-            href="/query"
-            sx={{ display: "flex", justifyContent: "center" }}
-          >
-            <img src={imgSrc()} alt="Logo" style={{ height: "40px" }} />
-          </Box> */}
-          <Tooltip title="Start new chat">
-            <span>
-              <IconButton
-                // disableRipple
-                // disableTouchRipple
-                // disableFocusRipple
-                disabled={!user}
-                aria-label="new chat"
-                edge="start"
-                onClick={onNewChat}
-              >
-                <Box component={NewChatIcon} sx={{ color: "text.secondary" }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-          {/* <Tooltip title="Open chat selector">
-            <span>
-              <IconButton
-                // disableRipple
-                // disableTouchRipple
-                // disableFocusRipple
-                disabled={!user}
-                aria-label="open drawer"
-                onClick={handleDrawerOpen}
-                edge="start"
-              >
-                <Box
-                  component={ChatSelectorIcon}
-                  sx={{ color: "text.secondary" }}
-                />
-              </IconButton>
-            </span>
-          </Tooltip> */}
-        </Stack>
-        <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
-          {typeof navigator !== "undefined" && Boolean(navigator.share) && (
-            <Tooltip title="Share this query">
-              <IconButton
-                // disableRipple
-                // disableTouchRipple
-                // disableFocusRipple
-                onClick={onShareClick}
-                color="inherit"
-                sx={{ color: "text.secondary" }}
-              >
-                <Box component={ShareQuery} sx={{ color: "text.secondary" }} />
-              </IconButton>
+          {!embed && (
+            <Tooltip title="Start new chat">
+              <span>
+                <IconButton
+                  disabled={!user}
+                  aria-label="new chat"
+                  edge="start"
+                  onClick={onNewChat}
+                >
+                  <Box
+                    component={NewChatIcon}
+                    sx={{ color: "text.secondary" }}
+                  />
+                </IconButton>
+              </span>
             </Tooltip>
           )}
+        </Stack>
+        <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
+          {typeof navigator !== "undefined" &&
+            Boolean(navigator.share) &&
+            !embed && (
+              <Tooltip title="Share this query">
+                <IconButton
+                  onClick={onShareClick}
+                  color="inherit"
+                  sx={{ color: "text.secondary" }}
+                >
+                  <Box
+                    component={ShareQuery}
+                    sx={{ color: "text.secondary" }}
+                  />
+                </IconButton>
+              </Tooltip>
+            )}
           <Tooltip title="Toggle table/SQL view">
             <IconButton
-              // disableRipple
-              // disableTouchRipple
-              // disableFocusRipple
               onClick={toggleTab}
               color="inherit"
               sx={{ color: "text.secondary" }}
@@ -222,29 +215,13 @@ const ApplicationBar = ({ id }: any) => {
               {tab === 0 ? <Code /> : <TableRows />}
             </IconButton>
           </Tooltip>
-          <Tooltip title="Toggle light/dark mode">
-            <IconButton
-              // disableRipple
-              // disableTouchRipple
-              // disableFocusRipple
-              onClick={toggleTheme}
-              color="inherit"
-            >
-              <Box component={ToggleMode} sx={{ color: "text.secondary" }} />
-            </IconButton>
-          </Tooltip>
-          {/* <IconButton
-            disableRipple
-            disableTouchRipple
-            disableFocusRipple
-            onClick={handleClick}
-          >
-            {user ? (
-              <Avatar sx={{ width: 26, height: 26 }} src={user.picture || ""} />
-            ) : (
-              <AccountCircle />
-            )}
-          </IconButton> */}
+          {!embed && (
+            <Tooltip title="Toggle light/dark mode">
+              <IconButton onClick={toggleTheme} color="inherit">
+                <Box component={ToggleMode} sx={{ color: "text.secondary" }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Menu
             anchorEl={anchorEl}
             elevation={1}
@@ -277,6 +254,15 @@ const ApplicationBar = ({ id }: any) => {
               </MenuItem>
             )}
           </Menu>
+          {embed && (
+            <IconButton
+              onClick={toggleExpanded}
+              color="inherit"
+              sx={{ color: "text.secondary" }}
+            >
+              {expanded ? <Close /> : <OpenInFullIcon />}
+            </IconButton>
+          )}
         </Stack>
       </Toolbar>
     </AppBar>

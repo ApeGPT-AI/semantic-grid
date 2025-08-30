@@ -13,7 +13,7 @@ export const config = {
      * - favicon.ico (favicon file)
      */
     {
-      source: "/((?!api|.well-known|_next/static|_next/image|.*\\..*).*)",
+      source: "/((?!mcp|api|.well-known|_next/static|_next/image|.*\\..*).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
@@ -28,7 +28,7 @@ export async function middleware(req: NextRequest) {
   console.log("middleware", schema, host, req.nextUrl.pathname);
   const freeRequests = Number(cookies().get("apegpt-trial")?.value || 0);
   const guestToken = cookies().get("uid")?.value;
-  console.log("guestToken", !!guestToken, freeRequests);
+  console.log("guestToken", guestToken, freeRequests);
 
   // make sure ephemeral requests are not impacted
   if (req.nextUrl.pathname.endsWith("/api/auth/guest")) {

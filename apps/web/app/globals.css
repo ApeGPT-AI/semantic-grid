@@ -39,3 +39,7 @@ a {
     color-scheme: dark;
   }
 }
+
+iframe {
+  border: none;
+}

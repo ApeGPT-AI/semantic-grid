@@ -89,7 +89,7 @@ export const overrides = (mode: string): ThemeOptions =>
           MuiAppBar: {
             styleOverrides: {
               colorPrimary: {
-                backgroundColor: "#eeeeee",
+                backgroundColor: "transparent",
               },
             },
           },

@@ -20,7 +20,11 @@ let privKey: CryptoKey | undefined;
 async function getPublicKey(): Promise<CryptoKey> {
   if (pubKey) return pubKey;
   if (!pubPem) {
-    pubPem = (await readFile(PUB_PATH, "utf8")).trim();
+    try {
+      pubPem = (await readFile(PUB_PATH, "utf8")).trim();
+    } catch (e) {
+      pubPem = process.env.JWT_PUBLIC_KEY!;
+    }
   }
   // Basic sanity check to avoid the SPKI error
   if (!pubPem.includes("-----BEGIN PUBLIC KEY-----")) {
@@ -33,7 +37,11 @@ async function getPublicKey(): Promise<CryptoKey> {
 async function getPrivateKey(): Promise<CryptoKey> {
   if (privKey) return privKey;
   if (!privPem) {
-    privPem = (await readFile(PRIV_PATH, "utf8")).trim();
+    try {
+      privPem = (await readFile(PRIV_PATH, "utf8")).trim();
+    } catch (e) {
+      privPem = process.env.JWT_PRIVATE_KEY!;
+    }
   }
   if (!privPem.includes("-----BEGIN PRIVATE KEY-----")) {
     throw new Error("Private key must be PKCS#8 PEM (BEGIN PRIVATE KEY)");

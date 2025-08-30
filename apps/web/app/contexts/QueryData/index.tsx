@@ -21,9 +21,9 @@ import React, {
   useState,
 } from "react";
 
+import { StyledValue } from "@/app/components/StyledValue";
 import { useInfiniteQuery } from "@/app/hooks/useInfiniteQuery";
 import type { TColumn } from "@/app/lib/types";
-import { StyledValue } from "@/app/components/StyledValue";
 
 export const options: Record<
   string,
@@ -167,7 +167,7 @@ export const QueryDataProvider = ({
     sortBy,
     sortOrder,
   });
-  console.log("QueryDataProvider data", queryId, data, "error", dataError);
+  // console.log("QueryDataProvider data", queryId, data, "error", dataError);
   const hasLoadedOnce = useRef(false);
   const triggered = useRef(false);
 
