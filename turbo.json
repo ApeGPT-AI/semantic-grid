@@ -24,14 +24,15 @@
         "AUTH0_CLIENT_SECRET",
         "AUTH0_AUDIENCE",
         "APEGPT_API_URL",
-        "NEXT_PUBLIC_GOOGLE_ANALYTICS",
         "JWT_PUBLIC_KEY",
         "JWT_PRIVATE_KEY",
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "FREE_TIER_QUOTA",
         "REQUEST_ACCESS_EMAIL",
-        "NEXT_PUBLIC_MUIX_LICENSE_KEY"
+        "NEXT_PUBLIC_GOOGLE_ANALYTICS",
+        "NEXT_PUBLIC_MUIX_LICENSE_KEY",
+        "NEXT_PUBLIC_VERCEL_URL"
       ]
     },
     "lint": {},

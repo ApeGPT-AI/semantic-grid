@@ -126,10 +126,11 @@ export const InteractiveDashboard = ({
   const [client, setClient] = useState<Client>();
   const [resource, setResource] = useState<any>(null);
 
-  const transport = useMemo(
-    () => new SSEClientTransport(new URL("http://localhost:3000/mcp/sse")),
-    [],
-  );
+  const host = process.env.NEXT_PUBLIC_VERCEL_URL || "localhost:3000";
+  const mcpUrl = `http${host.includes("localhost") ? "" : "s"}://${host}/mcp/sse`;
+  // console.log("MCP URL", mcpUrl);
+
+  const transport = useMemo(() => new SSEClientTransport(new URL(mcpUrl)), []);
 
   useEffect(() => {
     if (client) {
