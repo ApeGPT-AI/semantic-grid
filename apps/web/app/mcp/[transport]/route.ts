@@ -4,13 +4,16 @@ import { createUIResource } from "@mcp-ui/server";
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod/v3";
 
+const host = process.env.NEXT_PUBLIC_VERCEL_URL || "localhost:3000";
+const baseUrl = `http${host.includes("localhost") ? "" : "s"}://${host}`;
+
 const resource = (queryId: string, somethingElse: string) => {
   console.log("create resource", queryId, somethingElse);
   return createUIResource({
     uri: `ui://query/${queryId}`,
     content: {
       type: "externalUrl",
-      iframeUrl: `http://localhost:3000/q/${queryId}`,
+      iframeUrl: `${baseUrl}/q/${queryId}`,
     },
     encoding: "text",
   });
@@ -33,7 +36,7 @@ const handler = createMcpHandler(
           uri: `ui://query/${queryId}`,
           content: {
             type: "externalUrl",
-            iframeUrl: `http://localhost:3000/q/${queryId}?embed=true&view=${view}`,
+            iframeUrl: `${baseUrl}/q/${queryId}?embed=true&view=${view}`,
           },
           encoding: "text",
         });
@@ -50,7 +53,7 @@ const handler = createMcpHandler(
   },
   {
     // Optional redis config
-    redisUrl: "redis://127.0.0.1:6379",
+    redisUrl: process.env.REDIS_URL!, // "127.0.0.1:6379",
     basePath: "/mcp/", // this needs to match where the [transport] is located.
     maxDuration: 60,
     verboseLogs: true,
