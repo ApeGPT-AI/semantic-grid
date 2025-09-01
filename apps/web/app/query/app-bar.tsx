@@ -210,7 +210,7 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
       !canContinueAsAuthUser &&
       !canContinueAsGuest
     ) {
-      console.warn("No user session available, redirecting to login");
+      console.warn("No user session available, redirect to login?");
       // router.replace("/api/auth/login?returnTo=/query");
       return;
     }

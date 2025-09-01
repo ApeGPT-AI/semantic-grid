@@ -313,6 +313,30 @@ export const QueryDataProvider = ({
     setActiveColumn(col);
   };
 
+  const context = useMemo(() => {
+    // console.log("ctx", activeRows, activeColumn, gridColumns);
+    if (activeColumn?.field === "__add_column__")
+      return `${activeColumn?.headerName}` || "New column";
+    if (activeColumn && activeColumn.headerName !== "General")
+      return `column: ${activeColumn?.headerName}` || "";
+    if (activeRows) {
+      if (activeRows.length > 1) return `${activeRows.length} rows`;
+      if (activeRows.length === 1 && activeRows[0]?.wallet)
+        return (
+          `wallet ${activeRows[0]?.wallet}` ||
+          `${gridColumns?.[0]?.headerName} ${Object.values(activeRows[0])[1]}`
+        );
+      if (Object.values(activeRows)[0])
+        return `${gridColumns?.[0]?.headerName} ${Object.values(activeRows[0] || {})[1] || "-"}`;
+      return "row";
+    }
+    return "General";
+  }, [activeRows, activeColumn, gridColumns]);
+
+  useEffect(() => {
+    // console.log("context (q)", context);
+  }, [context]);
+
   return (
     <Index.Provider
       value={{

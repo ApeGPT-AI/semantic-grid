@@ -1,6 +1,5 @@
 import { LinkRounded, OpenInNew } from "@mui/icons-material";
 import { Box, IconButton, Tooltip } from "@mui/material";
-import { format } from "date-fns";
 import Link from "next/link";
 import React from "react";
 
@@ -165,6 +164,7 @@ export const StyledValue = ({
         <IconButton
           component={Link}
           href={`https://solscan.io/account/${trimmedValue}`}
+          target="_blank"
           size="small"
           sx={{ ml: 0 }}
           onClick={handleLinkClick}

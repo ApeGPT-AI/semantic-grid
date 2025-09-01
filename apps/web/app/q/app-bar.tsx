@@ -165,7 +165,7 @@ const ApplicationBar = ({ id, embed, expanded }: any) => {
           {error.message}
         </Alert>
       )}
-      <Toolbar variant="dense">
+      <Toolbar variant="dense" disableGutters>
         <Stack
           direction="row"
           sx={{ flexGrow: 1, alignItems: "center" }}
@@ -197,6 +197,7 @@ const ApplicationBar = ({ id, embed, expanded }: any) => {
                 <IconButton
                   onClick={onShareClick}
                   color="inherit"
+                  size="small"
                   sx={{ color: "text.secondary" }}
                 >
                   <Box
@@ -210,6 +211,7 @@ const ApplicationBar = ({ id, embed, expanded }: any) => {
             <IconButton
               onClick={toggleTab}
               color="inherit"
+              size="small"
               sx={{ color: "text.secondary" }}
             >
               {tab === 0 ? <Code /> : <TableRows />}
@@ -217,7 +219,7 @@ const ApplicationBar = ({ id, embed, expanded }: any) => {
           </Tooltip>
           {!embed && (
             <Tooltip title="Toggle light/dark mode">
-              <IconButton onClick={toggleTheme} color="inherit">
+              <IconButton onClick={toggleTheme} color="inherit" size="small">
                 <Box component={ToggleMode} sx={{ color: "text.secondary" }} />
               </IconButton>
             </Tooltip>
@@ -255,13 +257,16 @@ const ApplicationBar = ({ id, embed, expanded }: any) => {
             )}
           </Menu>
           {embed && (
-            <IconButton
-              onClick={toggleExpanded}
-              color="inherit"
-              sx={{ color: "text.secondary" }}
-            >
-              {expanded ? <Close /> : <OpenInFullIcon />}
-            </IconButton>
+            <Tooltip title={expanded ? "Collapse view" : "Expand view"}>
+              <IconButton
+                size="small"
+                onClick={toggleExpanded}
+                color="inherit"
+                sx={{ color: "text.secondary" }}
+              >
+                {expanded ? <Close /> : <OpenInFullIcon />}
+              </IconButton>
+            </Tooltip>
           )}
         </Stack>
       </Toolbar>

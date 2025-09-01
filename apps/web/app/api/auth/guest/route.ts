@@ -81,13 +81,18 @@ export const GET = async (req: NextRequest) => {
     .setExpirationTime("365d")
     .sign(privateKey);
 
-  const response = NextResponse.json({ success: true });
+  const response = NextResponse.redirect(`${schema}://${host}/query`);
   response.cookies.set("uid", jwt, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 365 * 24 * 60 * 60,
+  });
+  response.cookies.set("apegpt-trial", "0", {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   return response;

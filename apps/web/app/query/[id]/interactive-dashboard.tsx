@@ -128,7 +128,6 @@ export const InteractiveDashboard = ({
 
   const host = process.env.NEXT_PUBLIC_VERCEL_URL || "localhost:3000";
   const mcpUrl = `http${host.includes("localhost") ? "" : "s"}://${host}/mcp/sse`;
-  // console.log("MCP URL", mcpUrl);
 
   const transport = useMemo(() => new SSEClientTransport(new URL(mcpUrl)), []);
 
@@ -138,7 +137,7 @@ export const InteractiveDashboard = ({
     }
 
     const c = new Client({
-      name: "example-client",
+      name: "semantic-grid-client",
       version: "1.0.0",
     });
     c.connect(transport)
@@ -531,6 +530,9 @@ export const InteractiveDashboard = ({
                             remoteTextDefinition,
                           ],
                         }}
+                        htmlProps={{
+                          sandboxPermissions: "allow-popups",
+                        }}
                       />
                     )}
                     <Popover
@@ -649,6 +651,9 @@ export const InteractiveDashboard = ({
                           remoteButtonDefinition,
                           remoteTextDefinition,
                         ],
+                      }}
+                      htmlProps={{
+                        sandboxPermissions: "allow-popups",
                       }}
                     />
                   </Box>

@@ -726,7 +726,7 @@ export const ChatSessionProvider = ({
   };
 
   const context = useMemo(() => {
-    console.log("ctx", activeRows, activeColumn, gridColumns);
+    // console.log("ctx", activeRows, activeColumn, gridColumns);
     if (activeColumn?.field === "__add_column__")
       return `${activeColumn?.headerName}` || "New column";
     if (activeColumn && activeColumn.headerName !== "General")
@@ -746,7 +746,7 @@ export const ChatSessionProvider = ({
   }, [activeRows, activeColumn, gridColumns]);
 
   useEffect(() => {
-    console.log("context", context);
+    // console.log("context (query)", context);
   }, [context]);
 
   const requestType = () => {
@@ -998,13 +998,14 @@ export const ChatSessionProvider = ({
   const onSelectRow = (row: any) => {
     setActiveRows(
       // eslint-disable-next-line no-nested-ternary
-      row ? (activeRows ? [...activeRows, row] : [row]) : undefined,
+      row, // ? (activeRows ? [...activeRows, row] : [row]) : undefined,
     );
     setActiveColumn(null); // Clear active column on row selection
     setNewCol(false); // Clear new column state
     if (!row) {
       setSelectionModel([]);
     }
+    // setSelectionModel((rr) => (row ? [...rr, row.id] : [...rr])); // Set selection model to the selected row
     setSelectionModel((rr) => (row ? [...rr, row.id] : [...rr])); // Set selection model to the selected row
   };
 
