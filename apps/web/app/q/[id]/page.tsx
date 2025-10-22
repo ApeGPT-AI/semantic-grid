@@ -21,10 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const query = (await getQueryById(id)) as any;
 
   return {
-    title: `ApexGPT Query: ${query.summary}`,
+    title: `ApeGPT Query: ${query.summary}`,
     description: query.description,
     openGraph: {
-      title: `ApexGPT Query: ${query.summary}`,
+      title: `ApeGPT Query: ${query.summary}`,
       description: query.description,
       url: `/q/${id}`,
       images: [
