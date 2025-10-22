@@ -30,12 +30,18 @@ export const DashboardItemMenu = ({
   slugPath,
   refresh,
   fetchedAt,
+  onDownloadCsvVisible,
+  onDownloadCsvFull,
+  onCopyUrl,
 }: {
   id: string;
   query: TQuery;
   slugPath: string;
   refresh: () => void;
   fetchedAt?: number;
+  onDownloadCsvVisible: () => Promise<void> | void;
+  onDownloadCsvFull: () => Promise<void> | void;
+  onCopyUrl: () => Promise<void> | void;
 }) => {
   const router = useRouter();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -97,6 +103,12 @@ export const DashboardItemMenu = ({
       case "refresh":
         refresh();
         break;
+      case "url":
+        await onCopyUrl?.();
+        break;
+      case "csv":
+        await onDownloadCsvVisible?.();
+        break;
       default:
         break;
     }
@@ -112,16 +124,20 @@ export const DashboardItemMenu = ({
           { label: "sep1", isSeparator: true },
           { label: "Refresh", key: "refresh" },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "View", key: "item" },
-          { label: "Edit with Semantic Grid AI", key: "edit" },
+          { label: "Edit with AI", key: "edit" },
+          { label: "Enter Full Screen", key: "item" },
+          { label: "Copy URL", key: "url" },
+          { label: "Download CSV", key: "csv" },
           { label: "sep2", isSeparator: true },
           { label: "Delete", key: "delete", destructive: true },
         ]
       : [
           { label: "Refresh", key: "refresh" },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "View", key: "item" },
-          { label: "Clone with Semantic Grid AI", key: "copy" },
+          { label: "Edit with AI", key: "copy" },
+          { label: "Enter Full Screen", key: "item" },
+          { label: "Copy URL", key: "url" },
+          { label: "Download CSV", key: "csv" },
         ];
 
   return (

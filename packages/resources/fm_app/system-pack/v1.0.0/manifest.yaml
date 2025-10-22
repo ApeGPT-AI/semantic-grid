@@ -24,6 +24,13 @@ slots:
       client_id, intent_hint, query_metadata ]
     outputs: [ query_metadata ]
 
+  manual_query:
+    # start of a session from a SQL; LLM job is to create query metadata and descriptions from SQL
+    required: false
+    inputs: [
+      client_id, request ]
+    outputs: [ query_metadata ]
+
   linked_session:
     # no LLM involvement
     required: false

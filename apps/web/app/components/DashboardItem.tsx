@@ -7,6 +7,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { saveAs } from "file-saver";
 import Link from "next/link";
 
 import { DashboardChartItem } from "@/app/components/DashboardChartItem";
@@ -14,6 +15,21 @@ import { DashboardItemMenu } from "@/app/components/DashboardItemMenu";
 import { DashboardTableItem } from "@/app/components/DashboardTableItem";
 import { useQuery } from "@/app/hooks/useQuery";
 import { useQueryObject } from "@/app/hooks/useQueryObject";
+
+const exportRowsAsCSV = (rows: any[]) => {
+  if (rows.length === 0) return;
+
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers.map((field) => JSON.stringify(row[field] ?? "")).join(","),
+    ),
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  saveAs(blob, "selected-rows.csv");
+};
 
 const DashboardCard = ({
   id,
@@ -35,15 +51,26 @@ const DashboardCard = ({
   maxItemsPerRow: number;
 }) => {
   // console.log("card", { id, title, href, type, subtype, queryUid });
-  const { data } = useQueryObject(queryUid!);
+  const { data: query } = useQueryObject(queryUid!);
   // console.log("card query data", data);
   const minHeight = maxItemsPerRow ? 400 * (3 / maxItemsPerRow) : 400;
-  const { refresh, fetchedAt } = useQuery({
+  const { refresh, fetchedAt, data } = useQuery({
     id: queryUid,
-    sql: data?.sql,
+    sql: query?.sql,
     limit: 20,
     offset: 0,
   });
+
+  const onCopyUrl = async () => {
+    if (!queryUid) return;
+    const url = `${window.location.origin}/q/${queryUid}`;
+    await navigator.clipboard.writeText(url);
+  };
+
+  const onDownloadCsvVisible = async () => {
+    if (!queryUid || !data) return;
+    exportRowsAsCSV(data?.rows);
+  };
 
   const inner = (
     <Card
@@ -66,15 +93,18 @@ const DashboardCard = ({
                 justifyContent="space-between"
               >
                 <Typography variant="body1" color="text.primary" gutterBottom>
-                  {title || data?.summary}
+                  {title || query?.summary}
                 </Typography>
-                {data && (
+                {query && (
                   <DashboardItemMenu
                     id={id}
-                    query={data}
+                    query={query}
                     slugPath={slugPath}
                     refresh={refresh}
                     fetchedAt={fetchedAt || undefined}
+                    onDownloadCsvFull={async () => {}}
+                    onDownloadCsvVisible={onDownloadCsvVisible}
+                    onCopyUrl={onCopyUrl}
                   />
                 )}
               </Stack>
