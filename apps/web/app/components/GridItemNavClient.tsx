@@ -52,6 +52,18 @@ const GridItemNavClient = ({
   const { setNavOpen, editMode, setEditMode } = useContext(AppContext);
   const { view } = useItemViewContext();
   // console.log("grid nav items", metadata, queryUid, uid);
+  const [showBanner, setShowBanner] = React.useState(true);
+
+  useEffect(() => {
+    const timeout = null;
+    setTimeout(() => {
+      setShowBanner(false);
+    }, 5_000);
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, []);
 
   const handleToggle = () => {
     if (editMode && queryUid) {
@@ -130,7 +142,7 @@ const GridItemNavClient = ({
           {/* Spacer between primary nav and right-side controls */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {!metadata && lastMessage && (
+          {showBanner && (
             <Box>
               <Typography
                 color="primary.main"
