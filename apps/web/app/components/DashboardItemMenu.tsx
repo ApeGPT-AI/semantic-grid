@@ -97,7 +97,10 @@ export const DashboardItemMenu = ({
       case "delete":
         // eslint-disable-next-line no-restricted-globals,no-alert
         if (confirm(`Are you sure you want to delete item`)) {
-          await deleteQueryFromDashboard({ queryUid: query.query_id }); // , dashboardId
+          await deleteQueryFromDashboard({
+            itemUid: id,
+            queryUid: query.query_id,
+          }); // , dashboardId
         }
         break;
       case "refresh":

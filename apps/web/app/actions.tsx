@@ -234,16 +234,18 @@ export const editDefaultItemView = async ({
 };
 
 export const deleteQueryFromDashboard = async ({
+  itemUid,
   queryUid,
 }: {
+  itemUid: string;
   queryUid: string;
 }) => {
   const { uid, dashboardId, userId } = await ensureSession();
   console.log("deleteQueryFromDashboard", { uid, dashboardId, queryUid });
   if (!dashboardId) throw new Error("No dashboardId");
-  if (!queryUid) throw new Error("No queryId");
+  // if (!queryUid) throw new Error("No queryId");
 
-  await detachQueryFromDashboard(dashboardId, queryUid);
+  await detachQueryFromDashboard(dashboardId, queryUid, itemUid);
 
   revalidatePath(`/user/${userId}`, "page");
 };
