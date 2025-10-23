@@ -75,7 +75,7 @@ COPY --from=builder --chown=nextjs:nodejs /repo/${APP_DIR}/.next/static ./.next/
 COPY --from=deps /repo/node_modules ./node_modules
 
 # Copy migrations folder
-COPY --from=builder --chown=nextjs:nodejs /repo/${APP_DIR}/src/migrations ./src/migrations
+COPY --from=builder --chown=nextjs:nodejs /repo/${APP_DIR}/src ./src
 COPY --from=builder --chown=nextjs:nodejs /repo/${APP_DIR}/tsconfig.json ./tsconfig.json
 
 USER nextjs
