@@ -328,22 +328,19 @@ export const attachQueryToUserDashboard = async (input: {
 
 export const detachQueryFromDashboard = async (
   dashboardId: string,
-  queryUid: string,
+  _queryUid: string,
   itemUid: string,
 ) => {
   const dashboard = await getFromPayloadById("dashboards", dashboardId);
   if (!dashboard) {
-    console.log("No dashboard item found", dashboardId);
+    console.log("No dashboard found", dashboardId);
     return 0;
   }
-  console.log("Detaching item from dashboard", dashboardId, itemUid, dashboard);
-  // const itemId = items[0].id;
-
   // Remove item from dashboard's items array
   return patchOnPayload("dashboards", parseInt(dashboardId, 10), {
-    items: (dashboard?.items || []).filter(
-      (id: number) => id !== parseInt(itemUid),
-    ),
+    items: (dashboard?.items || [])
+      .map((item: DashboardItem) => item.id)
+      .filter((id: number) => id !== parseInt(itemUid)),
   }).then((r) => r);
 };
 
