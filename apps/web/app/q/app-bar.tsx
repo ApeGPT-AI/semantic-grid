@@ -129,7 +129,7 @@ const ApplicationBar = ({ id }: any) => {
             sessionId: session.session_id,
             queryId: id,
           });
-          router.replace(`/query/${session.session_id}`);
+          router.replace(`/grid/${session.session_id}`);
         }
       } catch (e) {
         console.error(e);
