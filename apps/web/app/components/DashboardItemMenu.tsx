@@ -156,7 +156,8 @@ export const DashboardItemMenu = ({
       </IconButton>
 
       <Popper
-        disablePortal
+        // NB: this setting disallows cropping of the popper within parent
+        // disablePortal
         anchorEl={anchorEl}
         open={open}
         style={{ pointerEvents: "auto", zIndex: 1300 }} // or theme.zIndex.modal
