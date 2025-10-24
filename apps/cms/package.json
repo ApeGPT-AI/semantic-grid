@@ -30,7 +30,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "sharp": "0.34.2",
-    "@payloadcms/db-vercel-postgres": "3.59.1"
+    "@payloadcms/db-postgres": "3.59.1",
+    "pg": "^8.11.1"
   },
   "devDependencies": {
     "@playwright/test": "1.54.1",
