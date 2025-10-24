@@ -19,7 +19,7 @@ async def get_db() -> AsyncSession:
         yield session
 
 
-WH_URL = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
+WH_URL = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
 wh_engine = create_engine(
     WH_URL,
     pool_size=40,

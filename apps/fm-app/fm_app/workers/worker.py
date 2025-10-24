@@ -101,9 +101,9 @@ app = Celery("ai_handler", broker=settings.wrk_broker_connection)
 
 app.conf.update(broker_connection_retry_on_startup=True)
 
-DATABASE_URL_WH = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
-DATABASE_URL_WH_NEW = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
-DATABASE_URL_WH_V2 = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
+DATABASE_URL_WH = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
+DATABASE_URL_WH_NEW = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
+DATABASE_URL_WH_V2 = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
 
 ENGINE_WH = create_engine(
     DATABASE_URL_WH, pool_size=40, max_overflow=60, pool_pre_ping=True, pool_recycle=360

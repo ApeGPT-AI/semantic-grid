@@ -88,7 +88,7 @@ async def fetch_data(
     )
     try:
         if db == "":
-            database_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
+            database_url = f"{settings.databse_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
             engine = create_engine(
                 database_url,
                 pool_size=40,
@@ -100,7 +100,7 @@ async def fetch_data(
             database = session()
 
         elif db == "NWH":
-            database_new_wh_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
+            database_new_wh_url = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
             engine_new_wh = create_engine(
                 database_new_wh_url,
                 pool_size=40,
@@ -112,7 +112,7 @@ async def fetch_data(
             database = session_new_wh()
 
         elif db == "V2":
-            database_v2_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
+            database_v2_url = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
             engine_v2 = create_engine(
                 database_v2_url,
                 pool_size=40,
@@ -162,7 +162,7 @@ async def execute_sql(
     )
     try:
         if db == "":
-            database_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
+            database_url = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
             engine = create_engine(
                 database_url,
                 pool_size=40,
@@ -174,7 +174,7 @@ async def execute_sql(
             database = session()
 
         elif db == "NWH":
-            database_new_wh_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
+            database_new_wh_url = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
             engine_new_wh = create_engine(
                 database_new_wh_url,
                 pool_size=40,
@@ -186,7 +186,7 @@ async def execute_sql(
             database = session_new_wh()
 
         elif db == "V2":
-            database_v2_url = f"clickhouse+native://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
+            database_v2_url = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
             engine_v2 = create_engine(
                 database_v2_url,
                 pool_size=40,
