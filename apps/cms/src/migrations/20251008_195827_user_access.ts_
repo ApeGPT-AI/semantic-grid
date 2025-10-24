@@ -1,7 +1,7 @@
-import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-vercel-postgres'
+import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
-  await db.execute(sql`
+  await payload.db.drizzle.execute(sql`
    CREATE TYPE "public"."enum_dashboard_items_type" AS ENUM('chart', 'table');
   CREATE TYPE "public"."enum_dashboard_items_item_type" AS ENUM('chart', 'table');
   CREATE TYPE "public"."enum_dashboard_items_chart_type" AS ENUM('bar', 'line', 'pie');
@@ -179,7 +179,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
-  await db.execute(sql`
+  await payload.db.drizzle.execute(sql`
    DROP TABLE "dashboards" CASCADE;
   DROP TABLE "dashboards_rels" CASCADE;
   DROP TABLE "dashboard_items" CASCADE;
