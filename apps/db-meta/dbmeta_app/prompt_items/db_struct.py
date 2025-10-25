@@ -11,6 +11,59 @@ from dbmeta_app.prompt_assembler.prompt_packs import assemble_effective_tree, lo
 from dbmeta_app.wh_db.db import get_db
 
 
+def get_sample_query(table: str, engine, limit: int = 5) -> str:
+    """
+    Generate a database-specific optimized sample query.
+
+    Different databases have different optimal approaches for sampling:
+    - ClickHouse: SAMPLE clause (very fast, samples data blocks)
+    - PostgreSQL: TABLESAMPLE BERNOULLI (fast, row-level sampling)
+    - MySQL/MariaDB: Simple LIMIT (ORDER BY RAND() is too slow on large tables)
+    - SQLite: Simple LIMIT
+    - DuckDB: USING SAMPLE (very fast, similar to ClickHouse)
+    - Others: Simple LIMIT (safest fallback)
+
+    Args:
+        table: Table name to sample from
+        engine: SQLAlchemy engine (used to detect database dialect)
+        limit: Number of sample rows to return (default 5)
+
+    Returns:
+        SQL query string optimized for the specific database
+    """
+    dialect = engine.dialect.name.lower()
+
+    if dialect == 'clickhouse':
+        # ClickHouse: SAMPLE is very efficient (samples data blocks)
+        # SAMPLE 0.01 = sample 1% of data blocks
+        return f"SELECT * FROM {table} SAMPLE 0.01 LIMIT {limit}"
+    elif dialect == 'postgresql':
+        # PostgreSQL: TABLESAMPLE BERNOULLI samples individual rows
+        # BERNOULLI(1) = 1% row-level sampling
+        # Note: SYSTEM is faster but may return 0 rows on small tables
+        return f"SELECT * FROM {table} TABLESAMPLE BERNOULLI (1) LIMIT {limit}"
+    elif dialect == 'duckdb':
+        # DuckDB: USING SAMPLE is very fast
+        return f"SELECT * FROM {table} USING SAMPLE 1% LIMIT {limit}"
+    elif dialect in ('mysql', 'mariadb'):
+        # MySQL: Just use LIMIT (ORDER BY RAND() is extremely slow on large tables)
+        # This gets rows in storage order, which is usually fine for sample data
+        return f"SELECT * FROM {table} LIMIT {limit}"
+    elif dialect == 'sqlite':
+        # SQLite: Simple LIMIT (RANDOM() is slow, but SQLite typically has small datasets)
+        return f"SELECT * FROM {table} LIMIT {limit}"
+    elif dialect == 'mssql':
+        # SQL Server: TABLESAMPLE can be used but syntax is different
+        # Using simple LIMIT-style query (TOP in SQL Server)
+        return f"SELECT TOP {limit} * FROM {table}"
+    elif dialect == 'oracle':
+        # Oracle: Use SAMPLE clause or ROWNUM
+        return f"SELECT * FROM {table} SAMPLE (1) WHERE ROWNUM <= {limit}"
+    else:
+        # Safe fallback for unknown databases
+        return f"SELECT * FROM {table} LIMIT {limit}"
+
+
 class DbColumn(BaseModel):
     name: str
     type: str
@@ -53,7 +106,8 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     schema_text = "The database contains the following tables:\n\n"
 
     with engine.connect() as conn:
-        for idx, table in enumerate(inspector.get_table_names()):
+        table_names = inspector.get_table_names()
+        for idx, table in enumerate(table_names):
             # Skip system/internal tables and temp tables
             if table.startswith("_") or table.startswith("temp_"):
                 continue
@@ -98,7 +152,14 @@ def generate_schema_prompt(engine, settings, with_examples=False):
             if not with_examples:
                 continue
 
-            res = conn.execute(text(f"SELECT * FROM {table} LIMIT 5"))
+            try:
+                # Use database-specific optimized sampling
+                sample_query = get_sample_query(table, engine)
+                res = conn.execute(text(sample_query))
+            except Exception:
+                # Skip tables that timeout or fail to query
+                continue
+
             # skip columns which are marked as hidden in descriptions
             columns = res.keys()
             # Filter out hidden columns
@@ -135,15 +196,17 @@ def get_schema_prompt_item() -> PromptItem:
     settings = get_settings()
     engine = get_db()
 
-    return PromptItem(
-        text=generate_schema_prompt(
-            engine,
-            settings,
-            with_examples=settings.data_examples,
-        ),
+    prompt = generate_schema_prompt(
+        engine,
+        settings,
+        with_examples=settings.data_examples,
+    )
+    items = PromptItem(
+        text=prompt,
         prompt_item_type=PromptItemType.db_struct,
         score=100_000,
     )
+    return items
 
 
 def get_db_schema() -> DbSchema:
@@ -211,7 +274,13 @@ def get_data_samples() -> dict[str, Any]:
             if table_metadata.get("hidden", False):
                 continue
 
-            res = conn.execute(text(f"SELECT * FROM {table} LIMIT 5"))
+            try:
+                # Use database-specific optimized sampling
+                sample_query = get_sample_query(table, engine)
+                res = conn.execute(text(sample_query))
+            except Exception:
+                # Skip tables that timeout or fail to query
+                continue
 
             # skip columns which are marked as hidden in descriptions
             columns = res.keys()

@@ -7,6 +7,7 @@ metadata:
     app: dbmeta-app
 data:
   LOG_LEVEL: 'INFO'
+  DATABASE_WH_DRIVER: 'clickhouse+native'
   DATABASE_WH_PORT: '9000'
   DATABASE_WH_PORT_NEW: '9000'
   # DATABASE_WH_PORT_V2: '9000'

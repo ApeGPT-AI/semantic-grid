@@ -38,7 +38,7 @@ dependencies = [
     "markdown-it-py==3.0.0",
     "markupsafe==3.0.2",
     "mdurl==0.1.2",
-    "numpy==1.26.4",
+    "numpy>=2.1,<3",
     "openai>=1.79.0",
     "pre-commit==4.0.1",
     "prompt-toolkit==3.0.48",
