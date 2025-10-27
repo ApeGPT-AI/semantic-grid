@@ -219,15 +219,64 @@ def validate_sort_column(
     return True, valid_columns[sort_by_lower]
 
 
-def build_sorted_paginated_sql(
-    user_sql: str,
-    *,
+def _build_cte_pagination_postgres(
+    body: str,
     sort_by: Optional[str],
-    sort_order: str,  # 'asc' | 'desc' (validated by FastAPI)
-    include_total_count: bool = False,  # set True if you want COUNT() OVER () AS total_count
-) -> str:
-    body = _strip_final_order_by_and_trailing(user_sql)
+    sort_order: str,
+    include_total_count: bool
+) -> tuple[str, str]:
+    """
+    PostgreSQL/MySQL: Support nested CTEs, can wrap WITH inside FROM.
 
+    Returns (base_sql, order_by_prefix)
+    """
+    if include_total_count:
+        base = f"""
+            SELECT *, COUNT(*) OVER () AS total_count
+            FROM (
+            {body}
+            ) AS __cte_wrapper
+        """
+        order_by_prefix = ""
+    else:
+        base = body
+        order_by_prefix = ""
+
+    return base, order_by_prefix
+
+
+def _build_cte_pagination_clickhouse(
+    body: str,
+    sort_by: Optional[str],
+    sort_order: str,
+    include_total_count: bool
+) -> tuple[str, str]:
+    """
+    ClickHouse/SQLite: Cannot have WITH inside FROM.
+    Skip total_count for CTEs to maintain compatibility.
+
+    Returns (base_sql, order_by_prefix)
+    """
+    # For ClickHouse, we cannot wrap CTE in FROM()
+    # Skip total_count functionality for CTE queries
+    base = body
+    order_by_prefix = ""
+
+    return base, order_by_prefix
+
+
+def _build_regular_pagination(
+    body: str,
+    sort_by: Optional[str],
+    sort_order: str,
+    include_total_count: bool
+) -> tuple[str, str]:
+    """
+    Standard subquery wrapping for non-CTE queries.
+    Works across all SQL dialects.
+
+    Returns (base_sql, order_by_prefix)
+    """
     if include_total_count:
         outer_select = "SELECT t.*, COUNT(*) OVER () AS total_count"
     else:
@@ -239,15 +288,69 @@ def build_sorted_paginated_sql(
         {body}
         ) AS t
     """
+    order_by_prefix = "t."
 
+    return base, order_by_prefix
+
+
+def build_sorted_paginated_sql(
+    user_sql: str,
+    *,
+    sort_by: Optional[str],
+    sort_order: str,
+    include_total_count: bool = False,
+) -> str:
+    """
+    Build paginated SQL with optional sorting and total count.
+
+    Handles CTE (WITH) queries specially based on database dialect:
+    - PostgreSQL/MySQL: Supports nested CTEs, can add total_count
+    - ClickHouse/SQLite: Cannot nest CTEs, skips total_count for CTEs
+    - Regular queries: Standard subquery wrapping for all dialects
+
+    Args:
+        user_sql: Original SQL query
+        sort_by: Column name to sort by (optional)
+        sort_order: 'asc' or 'desc'
+        include_total_count: Whether to add COUNT(*) OVER() for total rows
+
+    Returns:
+        Modified SQL with pagination, sorting, and optional total count
+    """
+    from fm_app.utils import get_cached_warehouse_dialect
+
+    body = _strip_final_order_by_and_trailing(user_sql)
+    body_trimmed = body.strip()
+    starts_with_cte = body_trimmed.upper().startswith('WITH')
+
+    if starts_with_cte:
+        dialect = get_cached_warehouse_dialect()
+
+        if dialect in ('postgres', 'postgresql', 'mysql'):
+            base, order_by_prefix = _build_cte_pagination_postgres(
+                body, sort_by, sort_order, include_total_count
+            )
+        else:
+            # ClickHouse, SQLite, or unknown dialect
+            # Use safe approach that works without nested CTEs
+            base, order_by_prefix = _build_cte_pagination_clickhouse(
+                body, sort_by, sort_order, include_total_count
+            )
+    else:
+        # Regular query without CTE
+        base, order_by_prefix = _build_regular_pagination(
+            body, sort_by, sort_order, include_total_count
+        )
+
+    # Add sorting if requested
     col = _sanitize_sort_by(sort_by)
     if col:
         direction = "ASC" if sort_order.lower() == "asc" else "DESC"
-        # Always anchor to outer alias to avoid ambiguity from CTEs/joins
-        base += f"\nORDER BY t.{col} {direction}"
+        base += f"\nORDER BY {order_by_prefix}{col} {direction}"
 
-    # Always page on the outer query
+    # Add pagination
     base += "\nLIMIT :limit\nOFFSET :offset"
+
     return base
 
 async def verify_any_token(
