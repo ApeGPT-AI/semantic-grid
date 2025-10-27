@@ -140,6 +140,33 @@ _TRAILING_LIMIT_OFFSET_FETCH_RE = re.compile(
 # Accept bare identifiers or dotted (alias.column); we’ll keep only the column piece for the outer query.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
+def _strip_leading_comments(sql: str) -> str:
+    """
+    Strip leading SQL comments (both -- and /* */ style) from the query.
+    Used for detecting if a query is a CTE.
+    """
+    lines = sql.strip().split('\n')
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        # Skip empty lines and single-line comments
+        if not stripped or stripped.startswith('--'):
+            continue
+        # If we hit a non-comment line, return from here
+        if not stripped.startswith('/*'):
+            return '\n'.join(lines[i:])
+        # Handle multi-line comments
+        if '*/' in stripped:
+            # Comment ends on this line, continue to next
+            continue
+        else:
+            # Multi-line comment starts, need to find where it ends
+            for j in range(i + 1, len(lines)):
+                if '*/' in lines[j]:
+                    return '\n'.join(lines[j + 1:])
+            break
+    return sql
+
+
 def _strip_final_order_by_and_trailing(sql: str, is_cte: bool = False) -> str:
     s = sql.strip().rstrip(";")
 
@@ -323,8 +350,9 @@ def build_sorted_paginated_sql(
     from fm_app.utils import get_cached_warehouse_dialect
 
     # Check if query is a CTE before stripping
-    user_sql_trimmed = user_sql.strip()
-    starts_with_cte = user_sql_trimmed.upper().startswith('WITH')
+    # Strip leading comments first to properly detect CTEs
+    user_sql_no_comments = _strip_leading_comments(user_sql)
+    starts_with_cte = user_sql_no_comments.strip().upper().startswith('WITH')
 
     # Strip ORDER BY and optionally LIMIT/OFFSET
     # For CTE queries, we only strip final ORDER BY, not LIMIT (to avoid matching LIMIT inside CTEs)
