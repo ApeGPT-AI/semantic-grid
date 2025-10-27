@@ -140,7 +140,7 @@ _TRAILING_LIMIT_OFFSET_FETCH_RE = re.compile(
 # Accept bare identifiers or dotted (alias.column); we’ll keep only the column piece for the outer query.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
-def _strip_final_order_by_and_trailing(sql: str) -> str:
+def _strip_final_order_by_and_trailing(sql: str, is_cte: bool = False) -> str:
     s = sql.strip().rstrip(";")
 
     # Remove only the *last* ORDER BY at the tail
@@ -150,9 +150,12 @@ def _strip_final_order_by_and_trailing(sql: str) -> str:
         s = s[: last.start()] + s[last.end():]
 
     # Remove trailing LIMIT/OFFSET/FETCH from the remaining tail
-    m = _TRAILING_LIMIT_OFFSET_FETCH_RE.search(s)
-    if m:
-        s = s[: m.start()]
+    # For CTE queries, skip this step as the regex is too greedy and will
+    # match LIMIT clauses inside CTEs, not just the trailing one
+    if not is_cte:
+        m = _TRAILING_LIMIT_OFFSET_FETCH_RE.search(s)
+        if m:
+            s = s[: m.start()]
 
     return s.strip()
 
@@ -319,9 +322,14 @@ def build_sorted_paginated_sql(
     """
     from fm_app.utils import get_cached_warehouse_dialect
 
-    body = _strip_final_order_by_and_trailing(user_sql)
+    # Check if query is a CTE before stripping
+    user_sql_trimmed = user_sql.strip()
+    starts_with_cte = user_sql_trimmed.upper().startswith('WITH')
+
+    # Strip ORDER BY and optionally LIMIT/OFFSET
+    # For CTE queries, we only strip final ORDER BY, not LIMIT (to avoid matching LIMIT inside CTEs)
+    body = _strip_final_order_by_and_trailing(user_sql, is_cte=starts_with_cte)
     body_trimmed = body.strip()
-    starts_with_cte = body_trimmed.upper().startswith('WITH')
 
     if starts_with_cte:
         dialect = get_cached_warehouse_dialect()
