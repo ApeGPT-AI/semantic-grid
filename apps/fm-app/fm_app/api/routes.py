@@ -175,12 +175,11 @@ def _strip_final_order_by_and_trailing(sql: str, is_cte: bool = False) -> str:
         s = s[: last.start()] + s[last.end():]
 
     # Remove trailing LIMIT/OFFSET/FETCH from the remaining tail
-    # For CTE queries, skip this step as the regex is too greedy and will
-    # match LIMIT clauses inside CTEs, not just the trailing one
-    if not is_cte:
-        m = _TRAILING_LIMIT_OFFSET_FETCH_RE.search(s)
-        if m:
-            s = s[: m.start()]
+    # The regex uses $ anchor so it only matches at the very end,
+    # safe to use even for CTE queries (won't match LIMITs inside CTEs)
+    m = _TRAILING_LIMIT_OFFSET_FETCH_RE.search(s)
+    if m:
+        s = s[: m.start()]
 
     return s.strip()
 

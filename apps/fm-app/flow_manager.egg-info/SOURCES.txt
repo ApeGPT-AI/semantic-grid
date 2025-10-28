@@ -69,6 +69,7 @@ fm_app/workers/multistep_flow.py
 fm_app/workers/prompt_elements.py
 fm_app/workers/simple_flow.py
 fm_app/workers/worker.py
+tests/test_cte_limit_fix.py
 tests/test_pagination.py
 tests/test_query_examples.py
 tests/test_query_examples_detailed.py
