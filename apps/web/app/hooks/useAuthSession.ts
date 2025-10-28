@@ -3,7 +3,7 @@
 import type { Session } from "@auth0/nextjs-auth0";
 import useSWR from "swr";
 
-export const useSession = (user: any) => {
+export const useAuthSession = (user: any) => {
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
   const {

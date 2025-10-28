@@ -1,8 +1,8 @@
 import type { UserProfile } from "@auth0/nextjs-auth0/client";
 import { useUser } from "@auth0/nextjs-auth0/client";
 
+import { useAuthSession } from "@/app/hooks/useAuthSession";
 import { useGuest } from "@/app/hooks/useGuest";
-import { useSession } from "@/app/hooks/useSession";
 
 export type TAppUser = {
   authUser: UserProfile | undefined;
@@ -22,7 +22,7 @@ export type TAppUser = {
 
 const useAppUser = () => {
   const { user: authUser, error: userError, isLoading } = useUser();
-  const { session, isLoading: sessionIsLoading } = useSession(authUser);
+  const { session, isLoading: sessionIsLoading } = useAuthSession(authUser);
   const { guest, hasQuota } = useGuest();
   const sessionIsValid =
     (session?.accessTokenExpiresAt || 0) * 1000 > Date.now();
