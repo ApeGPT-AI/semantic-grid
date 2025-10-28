@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import json
@@ -8,13 +9,16 @@ import uuid
 from typing import Optional
 from uuid import UUID
 
+import asyncpg
+
 # TODO: do we need these imports here?
 import plotly.graph_objects as go
-from fastapi import APIRouter, Depends, HTTPException, Query, Security
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.security import HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette import EventSourceResponse
 from starlette import status
 
 from fm_app.api.auth0 import VerifyGuestToken, VerifyToken
@@ -1307,7 +1311,8 @@ async def get_query_data(
             )
             rows = result.mappings().fetchall()
 
-            # Extract total_count if present (may not be present for ClickHouse CTE queries)
+            # Extract total_count if present
+            # (may not be present for ClickHouse CTE queries)
             if rows:
                 total_count = rows[0].get("total_count", 0)
             else:
@@ -1339,7 +1344,10 @@ async def get_query_data(
 
             headers = {
                 "ETag": etag,
-                "Cache-Control": "public, max-age=0, s-maxage=600, stale-while-revalidate=1200",
+                "Cache-Control": (
+                    "public, max-age=0, s-maxage=600, "
+                    "stale-while-revalidate=1200"
+                ),
                 "Vary": "Authorization, Accept, Accept-Encoding",
             }
 
@@ -1380,7 +1388,7 @@ async def get_query_data(
 
 
 @api_router.get("/query/{query_id}")
-async def get_query_data(
+async def get_query_metadata(
     query_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> GetQueryModel:
@@ -1389,3 +1397,179 @@ async def get_query_data(
         raise HTTPException(status_code=404, detail="Query not found")
 
     return query_response
+
+
+@api_router.get("/sse/{session_id}")
+async def stream_request_updates(
+    session_id: UUID,
+    request: Request,
+    auth_result: dict = Depends(verify_any_token),
+):
+    """
+    Server-Sent Events endpoint for real-time request status updates.
+
+    Listens to PostgreSQL NOTIFY events on the 'request_update' channel
+    and streams updates for the specified session to connected clients.
+
+    The trigger sends notifications with this payload:
+    {
+        "request_id": "uuid",
+        "session_id": "uuid",
+        "status": "status_enum",
+        "updated_at": timestamp,
+        "has_response": bool,
+        "has_error": bool,
+        "sequence_number": int
+    }
+    """
+    user_owner = auth_result.get("sub")
+    if user_owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No user name"
+        )
+
+    # Convert UUID to string for comparison
+    session_id_str = str(session_id)
+
+    from fm_app.config import get_settings
+    settings = get_settings()
+
+    # Build PostgreSQL connection URL for asyncpg (non-SQLAlchemy)
+    db_url = (
+        f"postgresql://{settings.database_user}:{settings.database_pass}"
+        f"@{settings.database_server}:{settings.database_port}/{settings.database_db}"
+    )
+
+    async def event_generator():
+        """Generate SSE events from PostgreSQL notifications."""
+        conn = None
+        try:
+            # Create asyncpg connection for LISTEN
+            conn = await asyncpg.connect(db_url)
+
+            # Listen to the request_update channel
+            await conn.add_listener('request_update', lambda *args: None)
+            await conn.execute("LISTEN request_update;")
+
+            logging.info(
+                "SSE connection established",
+                extra={
+                    "action": "sse_connect",
+                    "session_id": session_id_str,
+                    "user": user_owner,
+                }
+            )
+
+            # Send initial connection event
+            yield {
+                "event": "connected",
+                "data": json.dumps({
+                    "session_id": session_id_str,
+                    "timestamp": asyncio.get_event_loop().time()
+                })
+            }
+
+            # Listen for notifications
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logging.info(
+                        "SSE client disconnected",
+                        extra={
+                            "action": "sse_disconnect",
+                            "session_id": session_id_str,
+                            "user": user_owner,
+                        }
+                    )
+                    break
+
+                # Wait for notification with timeout
+                try:
+                    # asyncpg doesn't have a built-in timeout for notifications,
+                    # so we use asyncio.wait_for with a short timeout to check
+                    # for disconnections periodically
+                    notification = await asyncio.wait_for(
+                        conn.notifies.get(),
+                        timeout=5.0  # Check for disconnections every 5 seconds
+                    )
+
+                    # Parse the notification payload
+                    payload = json.loads(notification.payload)
+
+                    # Filter: only send notifications for this session
+                    if payload.get("session_id") == session_id_str:
+                        logging.debug(
+                            "SSE notification sent",
+                            extra={
+                                "action": "sse_notify",
+                                "session_id": session_id_str,
+                                "request_id": payload.get("request_id"),
+                                "status": payload.get("status"),
+                            }
+                        )
+
+                        # Send as SSE event
+                        yield {
+                            "event": "request_update",
+                            "data": json.dumps(payload)
+                        }
+
+                except asyncio.TimeoutError:
+                    # No notification received, send keep-alive comment
+                    # SSE spec: lines starting with ':' are comments (keep-alive)
+                    yield {
+                        "comment": "keep-alive"
+                    }
+                    continue
+
+        except asyncio.CancelledError:
+            logging.info(
+                "SSE connection cancelled",
+                extra={
+                    "action": "sse_cancel",
+                    "session_id": session_id_str,
+                }
+            )
+            raise
+
+        except Exception as e:
+            logging.error(
+                "SSE error",
+                extra={
+                    "action": "sse_error",
+                    "session_id": session_id_str,
+                    "error": str(e),
+                }
+            )
+            # Send error event to client
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "error": "Internal server error",
+                    "session_id": session_id_str
+                })
+            }
+
+        finally:
+            # Clean up: stop listening and close connection
+            if conn is not None:
+                try:
+                    await conn.execute("UNLISTEN request_update;")
+                    await conn.close()
+                    logging.info(
+                        "SSE connection closed",
+                        extra={
+                            "action": "sse_close",
+                            "session_id": session_id_str,
+                        }
+                    )
+                except Exception as e:
+                    logging.error(
+                        "Error closing SSE connection",
+                        extra={
+                            "action": "sse_close_error",
+                            "error": str(e),
+                        }
+                    )
+
+    return EventSourceResponse(event_generator())
