@@ -4,11 +4,49 @@ Test all query examples from client config YAML files.
 This ensures our pagination logic works correctly with real production queries.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 from unittest import mock
+
 import yaml
+
+# Set minimal environment variables before importing fm_app
+# This prevents Settings validation errors in CI
+os.environ.setdefault('DATABASE_USER', 'test')
+os.environ.setdefault('DATABASE_PASS', 'test')
+os.environ.setdefault('DATABASE_PORT', '5432')
+os.environ.setdefault('DATABASE_SERVER', 'localhost')
+os.environ.setdefault('DATABASE_DB', 'test')
+os.environ.setdefault('DATABASE_WH_USER', 'test')
+os.environ.setdefault('DATABASE_WH_PASS', 'test')
+os.environ.setdefault('DATABASE_WH_PORT', '8123')
+os.environ.setdefault('DATABASE_WH_PORT_NEW', '8123')
+os.environ.setdefault('DATABASE_WH_PORT_V2', '8123')
+os.environ.setdefault('DATABASE_WH_SERVER', 'localhost')
+os.environ.setdefault('DATABASE_WH_SERVER_NEW', 'localhost')
+os.environ.setdefault('DATABASE_WH_SERVER_V2', 'localhost')
+os.environ.setdefault('DATABASE_WH_PARAMS', '')
+os.environ.setdefault('DATABASE_WH_PARAMS_NEW', '')
+os.environ.setdefault('DATABASE_WH_PARAMS_V2', '')
+os.environ.setdefault('DATABASE_WH_DB', 'test')
+os.environ.setdefault('DATABASE_WH_DB_NEW', 'test')
+os.environ.setdefault('DATABASE_WH_DB_V2', 'test')
+os.environ.setdefault('AUTH0_DOMAIN', 'test.auth0.com')
+os.environ.setdefault('AUTH0_API_AUDIENCE', 'test')
+os.environ.setdefault('AUTH0_ISSUER', 'https://test.auth0.com/')
+os.environ.setdefault('AUTH0_ALGORITHMS', 'RS256')
+os.environ.setdefault('DBMETA', 'http://localhost:8000')
+os.environ.setdefault('DBREF', 'http://localhost:8000')
+os.environ.setdefault('IRL_SLOTS', '')
+os.environ.setdefault('GOOGLE_PROJECT_ID', 'test')
+os.environ.setdefault('GOOGLE_CRED_FILE', 'test.json')
+os.environ.setdefault('ANTHROPIC_API_KEY', 'sk-ant-test')
+os.environ.setdefault('OPENAI_API_KEY', 'sk-test')
+os.environ.setdefault('DEEPSEEK_AI_API_URL', 'http://localhost')
+os.environ.setdefault('DEEPSEEK_AI_API_KEY', 'test')
+os.environ.setdefault('GUEST_AUTH_HOST', 'localhost')
+os.environ.setdefault('GUEST_AUTH_ISSUER', 'http://localhost')
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -99,7 +137,7 @@ def main():
             success, error = test_query_example(example)
 
             if success:
-                print(f"  ✓ Passed")
+                print("  ✓ Passed")
                 passed += 1
             else:
                 print(f"  ✗ Failed: {error}")
