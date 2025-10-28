@@ -27,6 +27,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy the project into the image
 COPY ${PROJECT_DIR}/pyproject.toml ${PROJECT_DIR}/uv.lock /app/
 COPY ${PROJECT_DIR}/fm_app /app/fm_app
+COPY ${PROJECT_DIR}/alembic.ini /app/alembic.ini
+COPY ${PROJECT_DIR}/alembic /app/alembic
 COPY ${PROJECT_DIR}/celery_run.sh /app/celery_run.sh
 COPY ${PROJECT_DIR}/run.sh /app/run.sh
 

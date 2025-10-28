@@ -192,3 +192,23 @@ export enum DB {
   NWH = "NWH",
   V2 = "V2",
 }
+
+/**
+ * SSE event payload from the backend
+ * Sent via the /api/sse/{session_id} endpoint
+ */
+export type SSERequestUpdate = {
+  request_id: string;
+  session_id: string;
+  status: string;
+  updated_at: number;
+  has_response: boolean;
+  has_error: boolean;
+  sequence_number: number;
+};
+
+export type SSEConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
