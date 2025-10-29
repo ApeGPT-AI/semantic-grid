@@ -2,7 +2,7 @@ import { getAccessToken } from "@auth0/nextjs-auth0";
 import { cookies, headers as nextHeaders } from "next/headers";
 import type { NextRequest } from "next/server";
 
-const ORIGIN_BASE = process.env.API_BASE ?? "https://api.apegpt.ai"; // e.g. https://api.example.com
+const ORIGIN_BASE = process.env.APEGPT_API_URL ?? "https://api.apegpt.ai"; // e.g. https://api.example.com
 
 export const GET = async (
   req: NextRequest,
