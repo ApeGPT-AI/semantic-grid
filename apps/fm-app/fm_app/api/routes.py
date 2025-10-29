@@ -1331,6 +1331,7 @@ async def get_query_data(
     # print('SQL', combined_sql)
 
     with wh_session() as session:
+        print('session', session.info)
         try:
             result = session.execute(
                 text(combined_sql),
@@ -1340,6 +1341,7 @@ async def get_query_data(
                 },
             )
             rows = result.mappings().fetchall()
+            print('rows', rows)
 
             # Extract total_count if present
             # (may not be present for ClickHouse CTE queries)
