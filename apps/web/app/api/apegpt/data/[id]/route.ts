@@ -8,6 +8,7 @@ export const GET = async (
   req: NextRequest,
   { params: { id } }: { params: { id: string } },
 ) => {
+  console.log("process.env.APEGPT_API_URL", process.env.APEGPT_API_URL);
   // 1) Auth
   const guestToken = cookies().get("uid")?.value;
   let token: { accessToken?: string } | null = null;
