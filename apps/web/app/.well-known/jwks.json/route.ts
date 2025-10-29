@@ -32,7 +32,7 @@ export const GET = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== "GET") return res.status(405).end();
 
   // Convert PEM public key to JWK
-  const publicKey = await jose.importSPKI(PUBLIC_KEY, "RS256");
+  const publicKey = await getPublicKey();
   const jwk = await jose.exportJWK(publicKey);
 
   return NextResponse.json({
