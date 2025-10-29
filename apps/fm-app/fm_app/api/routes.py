@@ -411,7 +411,8 @@ def build_sorted_paginated_sql(
         SELECT
           t.*,
           COUNT(*) OVER () AS _inner_count
-        FROM orig_sql AS t{order_clause}
+        FROM orig_sql AS t 
+        {order_clause}
         LIMIT :limit OFFSET :offset;
         """
     else:
@@ -421,7 +422,8 @@ def build_sorted_paginated_sql(
         )
         SELECT
           t.*
-        FROM orig_sql AS t{order_clause}
+        FROM orig_sql AS t 
+        {order_clause}
         LIMIT :limit OFFSET :offset;
         """
 
@@ -1385,8 +1387,9 @@ async def get_query_data(
                 headers=headers,
             )
 
-        except Exception as e:
-            error_msg = str(e)
+        except Exception as err:
+            error_msg = str(err)
+            print("SQL execution error:", error_msg)
             error_lower = error_msg.lower()
 
             # Provide better error messages for common issues
