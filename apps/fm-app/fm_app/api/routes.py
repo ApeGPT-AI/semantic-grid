@@ -22,7 +22,7 @@ from sse_starlette import EventSourceResponse
 from starlette import status
 
 from fm_app.api.auth0 import VerifyGuestToken, VerifyToken
-from fm_app.api.db_session import get_db, wh_session
+from fm_app.api.db_session import get_db, wh_engine, wh_session
 from fm_app.api.model import (
     AddLinkedRequestModel,
     AddRequestModel,
@@ -1330,17 +1330,19 @@ async def get_query_data(
     )
     # print('SQL', combined_sql)
 
-    with wh_session() as session:
-        print('session', session.info)
+    # Use engine.connect() directly like db-meta (more reliable for PostgreSQL)
+    with wh_engine.connect() as conn:
         try:
-            result = session.execute(
+            result = conn.execute(
                 text(combined_sql),
                 {
                     "limit": limit,
                     "offset": offset,
                 },
             )
-            rows = result.mappings().fetchall()
+            # Manual dict conversion (avoid .mappings() which can fail on connection drops)
+            columns = result.keys()
+            rows = [dict(zip(columns, row)) for row in result.fetchall()]
             print('rows', rows)
 
             # Extract total_count if present
