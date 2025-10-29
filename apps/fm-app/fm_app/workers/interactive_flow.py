@@ -861,53 +861,6 @@ async def interactive_flow(
 
                     print(">>> POST ROW COUNT", stopwatch.lap())
 
-                    await update_query_metadata(
-                        session_id=req.session_id,
-                        user_owner=req.user,
-                        metadata=new_metadata,
-                        db=db,
-                    )
-
-                    requests_for_session = await get_all_requests(
-                        session_id=req.session_id, db=db, user_owner=req.user
-                    )
-                    # cycle through requests to latest request with query_id set
-                    parent_id = None
-                    for request in requests_for_session:
-                        if request.query is not None:
-                            parent_id = (
-                                request.query.query_id
-                                if request.query.query_id
-                                else None
-                            )
-                            break
-                    new_query = CreateQueryModel(
-                        request=req.request,
-                        intent=user_intent,
-                        summary=new_metadata.get("summary"),
-                        description=new_metadata.get("description"),
-                        sql=extracted_sql,
-                        row_count=new_metadata.get("row_count"),
-                        columns=new_metadata.get("columns"),
-                        ai_generated=True,
-                        ai_context=None,
-                        data_source=req.db,
-                        db_dialect=warehouse_dialect,
-                        explanation=new_metadata.get("explanation"),
-                        parent_id=(
-                            req.query.query_id if req.query is not None else parent_id
-                        ),  # Link to the previous query if exists
-                    )
-                    # Create a new query in the database
-                    new_query_stored = await create_query(db=db, init=new_query)
-                    await update_request(
-                        db=db,
-                        update=UpdateRequestModel(
-                            request_id=req.request_id,
-                            query_id=new_query_stored.query_id,
-                        ),
-                    )
-
                 # unable to count rows, log the error and keep going
                 except Exception as e:
                     await update_request_status(
@@ -922,6 +875,53 @@ async def interactive_flow(
                     # req.status = RequestStatus.error
                     # req.err = str(e)
                     # return req
+
+                await update_query_metadata(
+                    session_id=req.session_id,
+                    user_owner=req.user,
+                    metadata=new_metadata,
+                    db=db,
+                )
+
+                requests_for_session = await get_all_requests(
+                    session_id=req.session_id, db=db, user_owner=req.user
+                )
+                # cycle through requests to latest request with query_id set
+                parent_id = None
+                for request in requests_for_session:
+                    if request.query is not None:
+                        parent_id = (
+                            request.query.query_id
+                            if request.query.query_id
+                            else None
+                        )
+                        break
+                new_query = CreateQueryModel(
+                    request=req.request,
+                    intent=user_intent,
+                    summary=new_metadata.get("summary"),
+                    description=new_metadata.get("description"),
+                    sql=extracted_sql,
+                    row_count=new_metadata.get("row_count"),
+                    columns=new_metadata.get("columns"),
+                    ai_generated=True,
+                    ai_context=None,
+                    data_source=req.db,
+                    db_dialect=warehouse_dialect,
+                    explanation=new_metadata.get("explanation"),
+                    parent_id=(
+                        req.query.query_id if req.query is not None else parent_id
+                    ),  # Link to the previous query if exists
+                )
+                # Create a new query in the database
+                new_query_stored = await create_query(db=db, init=new_query)
+                await update_request(
+                    db=db,
+                    update=UpdateRequestModel(
+                        request_id=req.request_id,
+                        query_id=new_query_stored.query_id,
+                    ),
+                )
 
             elif new_metadata.get("result") is not None:
                 req.response = new_metadata.get("result")

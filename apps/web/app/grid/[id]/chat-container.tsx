@@ -397,6 +397,7 @@ export const ChatContainer = ({
   }, [newCol]);
 
   const handleSectionClick = (section: TChatSection) => {
+    console.log("section selected", requestId, section);
     onSelectColumn({ field: section.id, headerName: section.label });
     const el = section.requestId
       ? document.getElementById(section.requestId)
