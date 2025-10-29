@@ -277,89 +277,86 @@ async def interactive_flow(
 
             # if we have a valid SQL, get the row count
 
-            print(">>> PRE ROW COUNT", stopwatch.lap())
+            # print(">>> PRE ROW COUNT", stopwatch.lap())
 
-            try:
-                row_count = count_wh_request(extracted_sql, db_wh)
-                new_metadata.update({"row_count": row_count})
+            # try:
+            #    row_count = count_wh_request(extracted_sql, db_wh)
+            #    new_metadata.update({"row_count": row_count})
 
-                print(">>> POST ROW COUNT", stopwatch.lap())
+            #    print(">>> POST ROW COUNT", stopwatch.lap())
+            #    # unable to count rows, log the error and keep going
 
-                await update_query_metadata(
-                    session_id=req.session_id,
-                    user_owner=req.user,
-                    metadata=new_metadata,
-                    db=db,
-                )
+            # except Exception as e:
+            #    await update_request_status(
+            #        RequestStatus.error, str(e), db, req.request_id
+            #    )
+            #    logger.info(
+            #        "Error counting rows",
+            #        flow_stage="count_rows_error",
+            #        flow_step_num=next(flow_step),
+            #        error=str(e),
+            #    )
 
-                requests_for_session = await get_all_requests(
-                    session_id=req.session_id, db=db, user_owner=req.user
-                )
-                # cycle through requests to latest request with query_id set
-                parent_id = None
-                for request in requests_for_session:
-                    if request.query is not None:
-                        parent_id = (
-                            request.query.query_id
-                            if request.query.query_id
-                            else None
-                        )
-                        break
-                new_query = CreateQueryModel(
-                    request=req.request,
-                    intent=new_metadata.get("intent"),
-                    summary=new_metadata.get("summary"),
-                    description=new_metadata.get("description"),
-                    sql=extracted_sql,
-                    row_count=new_metadata.get("row_count"),
-                    columns=new_metadata.get("columns"),
-                    ai_generated=True,
-                    ai_context=None,
-                    data_source=req.db,
-                    db_dialect=warehouse_dialect,
-                    explanation=new_metadata.get("explanation"),
-                    parent_id=(
-                        req.query.query_id if req.query is not None else parent_id
-                    ),  # Link to the previous query if exists
-                )
-                # Create a new query in the database
-                new_query_stored = await create_query(db=db, init=new_query)
-                await update_request(
-                    db=db,
-                    update=UpdateRequestModel(
-                        request_id=req.request_id,
-                        query_id=new_query_stored.query_id,
-                    ),
-                )
+            await update_query_metadata(
+                session_id=req.session_id,
+                user_owner=req.user,
+                metadata=new_metadata,
+                db=db,
+            )
 
-                req.response = llm_response.result
-                req.structured_response = StructuredResponse(
-                    intent=llm_response.summary,
-                    description=llm_response.description,
-                    intro=llm_response.result,
-                    sql=llm_response.sql,
-                    metadata=new_metadata,
-                    refs=req.refs,
-                )
+            requests_for_session = await get_all_requests(
+                session_id=req.session_id, db=db, user_owner=req.user
+            )
+            # cycle through requests to latest request with query_id set
+            parent_id = None
+            for request in requests_for_session:
+                if request.query is not None:
+                    parent_id = (
+                        request.query.query_id
+                        if request.query.query_id
+                        else None
+                    )
+                    break
+            new_query = CreateQueryModel(
+                request=req.request,
+                intent=new_metadata.get("intent"),
+                summary=new_metadata.get("summary"),
+                description=new_metadata.get("description"),
+                sql=extracted_sql,
+                row_count=new_metadata.get("row_count"),
+                columns=new_metadata.get("columns"),
+                ai_generated=True,
+                ai_context=None,
+                data_source=req.db,
+                db_dialect=warehouse_dialect,
+                explanation=new_metadata.get("explanation"),
+                parent_id=(
+                    req.query.query_id if req.query is not None else parent_id
+                ),  # Link to the previous query if exists
+            )
+            # Create a new query in the database
+            new_query_stored = await create_query(db=db, init=new_query)
+            await update_request(
+                db=db,
+                update=UpdateRequestModel(
+                    request_id=req.request_id,
+                    query_id=new_query_stored.query_id,
+                ),
+            )
 
-                print(">>> DONE MANUAL QUERY", stopwatch.lap())
+            req.response = llm_response.result
+            req.structured_response = StructuredResponse(
+                intent=llm_response.summary,
+                description=llm_response.description,
+                intro=llm_response.result,
+                sql=llm_response.sql,
+                metadata=new_metadata,
+                refs=req.refs,
+            )
 
-                return req
+            print(">>> DONE MANUAL QUERY", stopwatch.lap())
 
-            # unable to count rows, log the error and keep going
-            except Exception as e:
-                await update_request_status(
-                    RequestStatus.error, str(e), db, req.request_id
-                )
-                logger.info(
-                    "Error counting rows",
-                    flow_stage="count_rows_error",
-                    flow_step_num=next(flow_step),
-                    error=str(e),
-                )
-
-                req.err = str(e)
-                return req
+            return req
 
     elif req.request_type == InteractiveRequestType.linked_query:
         ### LINKED SESSION ###
@@ -853,28 +850,28 @@ async def interactive_flow(
 
                 # if we have a valid SQL, get the row count
 
-                print(">>> PRE ROW COUNT", stopwatch.lap())
+                # print(">>> PRE ROW COUNT", stopwatch.lap())
 
-                try:
-                    row_count = count_wh_request(extracted_sql, db_wh)
-                    new_metadata.update({"row_count": row_count})
+                # try:
+                #    row_count = count_wh_request(extracted_sql, db_wh)
+                #    new_metadata.update({"row_count": row_count})
 
-                    print(">>> POST ROW COUNT", stopwatch.lap())
+                #    print(">>> POST ROW COUNT", stopwatch.lap())
 
                 # unable to count rows, log the error and keep going
-                except Exception as e:
-                    await update_request_status(
-                        RequestStatus.error, str(e), db, req.request_id
-                    )
-                    logger.info(
-                        "Error counting rows",
-                        flow_stage="count_rows_error",
-                        flow_step_num=next(flow_step),
-                        error=str(e),
-                    )
-                    # req.status = RequestStatus.error
-                    # req.err = str(e)
-                    # return req
+                # except Exception as e:
+                #    await update_request_status(
+                #        RequestStatus.error, str(e), db, req.request_id
+                #    )
+                #    logger.info(
+                #        "Error counting rows",
+                #        flow_stage="count_rows_error",
+                #        flow_step_num=next(flow_step),
+                #        error=str(e),
+                #    )
+                #    # req.status = RequestStatus.error
+                #    # req.err = str(e)
+                #    # return req
 
                 await update_query_metadata(
                     session_id=req.session_id,
