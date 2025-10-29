@@ -437,3 +437,17 @@ export const getSuggestedPrompts = async () => {
   );
   return prompts;
 };
+
+export const getNewSessionWelcome = async () => {
+  const query = stringify(
+    {
+      limit: 1,
+      sort: "-createdAt",
+    },
+    { addQueryPrefix: true },
+  );
+  const [welcome] = await getFromPayload("new_session_welcome", query).then(
+    (r) => r?.docs || [],
+  );
+  return welcome?.text || null;
+};

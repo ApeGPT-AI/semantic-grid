@@ -70,6 +70,7 @@ export interface Config {
     dashboards: Dashboard;
     dashboard_items: DashboardItem;
     queries: Query;
+    new_session_welcome: NewSessionWelcome;
     suggested_prompts: SuggestedPrompt;
     users: User;
     media: Media;
@@ -82,6 +83,9 @@ export interface Config {
     dashboards: DashboardsSelect<false> | DashboardsSelect<true>;
     dashboard_items: DashboardItemsSelect<false> | DashboardItemsSelect<true>;
     queries: QueriesSelect<false> | QueriesSelect<true>;
+    new_session_welcome:
+      | NewSessionWelcomeSelect<false>
+      | NewSessionWelcomeSelect<true>;
     suggested_prompts:
       | SuggestedPromptsSelect<false>
       | SuggestedPromptsSelect<true>;
@@ -174,6 +178,16 @@ export interface Query {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "new_session_welcome".
+ */
+export interface NewSessionWelcome {
+  id: number;
+  text: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "suggested_prompts".
  */
 export interface SuggestedPrompt {
@@ -244,6 +258,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: "queries";
         value: number | Query;
+      } | null)
+    | ({
+        relationTo: "new_session_welcome";
+        value: number | NewSessionWelcome;
       } | null)
     | ({
         relationTo: "suggested_prompts";
@@ -336,6 +354,15 @@ export interface QueriesSelect<T extends boolean = true> {
   queryUid?: T;
   name?: T;
   description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "new_session_welcome_select".
+ */
+export interface NewSessionWelcomeSelect<T extends boolean = true> {
+  text?: T;
   updatedAt?: T;
   createdAt?: T;
 }

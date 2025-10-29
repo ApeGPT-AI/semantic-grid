@@ -38,7 +38,8 @@ import { useGridSession } from "@/app/contexts/GridSession";
 import { ThemeContext } from "@/app/contexts/Theme";
 import { StructuredText, structuredText } from "@/app/helpers/text";
 import { useSessionStatus } from "@/app/hooks/useSessionStatus";
-import { getSuggestedPrompts } from "@/app/lib/payload";
+import { getNewSessionWelcome, getSuggestedPrompts } from "@/app/lib/payload";
+import type { SuggestedPrompt } from "@/app/lib/payload-types";
 import { getSuggestions } from "@/app/lib/suggestions";
 import type { TChatMessage, TChatSection } from "@/app/lib/types";
 
@@ -291,9 +292,16 @@ export const ChatContainer = ({
   const { connectionStatus, latestUpdate } = useSessionStatus(id);
   // console.log("*** session status ***", { connectionStatus, latestUpdate });
 
+  const [welcome, setWelcome] = useState<string>("");
+  useEffect(() => {
+    getNewSessionWelcome().then(setWelcome);
+  }, []);
+
   const [followUps, setFollowUps] = useState<string[]>([]);
   useEffect(() => {
-    getSuggestedPrompts().then(setFollowUps);
+    getSuggestedPrompts()
+      .then((p) => p.map((p: SuggestedPrompt) => p.text))
+      .then(setFollowUps);
   }, []);
 
   // const followUps = [
@@ -671,7 +679,7 @@ export const ChatContainer = ({
               >
                 {isEmptyChat && (
                   <Typography variant="body2" color="textSecondary">
-                    Ask Anything About Solana Based Tokens:
+                    {welcome}
                   </Typography>
                 )}
                 {isEmptyChat &&
