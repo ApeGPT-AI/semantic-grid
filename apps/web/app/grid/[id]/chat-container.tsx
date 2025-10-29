@@ -289,7 +289,7 @@ export const ChatContainer = ({
   const [inputHeight, setInputHeight] = useState(0);
 
   const { connectionStatus, latestUpdate } = useSessionStatus(id);
-  console.log("*** session status ***", { connectionStatus, latestUpdate });
+  // console.log("*** session status ***", { connectionStatus, latestUpdate });
 
   const [followUps, setFollowUps] = useState<string[]>([]);
   useEffect(() => {

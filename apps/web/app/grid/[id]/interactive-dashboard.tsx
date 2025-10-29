@@ -155,8 +155,6 @@ export const InteractiveDashboard = ({
     [hasData, pendingRequest],
   );
 
-  console.log("showGrid", showGrid);
-
   useEffect(() => {
     // setLeftWidth(window.innerWidth);
     // console.log("leftWidth", leftWidth);
