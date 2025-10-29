@@ -423,3 +423,17 @@ export const ensureUserAndDashboard = async (opts: { sid?: string }) => {
 
   return { uid, userId, dashboardId: dashId };
 };
+
+export const getSuggestedPrompts = async () => {
+  const query = stringify(
+    {
+      limit: 100,
+      sort: "-createdAt",
+    },
+    { addQueryPrefix: true },
+  );
+  const prompts = await getFromPayload("suggested_prompts", query).then(
+    (r) => r?.docs || [],
+  );
+  return prompts;
+};

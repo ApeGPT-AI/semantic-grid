@@ -70,6 +70,7 @@ export interface Config {
     dashboards: Dashboard;
     dashboard_items: DashboardItem;
     queries: Query;
+    suggested_prompts: SuggestedPrompt;
     users: User;
     media: Media;
     "payload-locked-documents": PayloadLockedDocument;
@@ -81,6 +82,9 @@ export interface Config {
     dashboards: DashboardsSelect<false> | DashboardsSelect<true>;
     dashboard_items: DashboardItemsSelect<false> | DashboardItemsSelect<true>;
     queries: QueriesSelect<false> | QueriesSelect<true>;
+    suggested_prompts:
+      | SuggestedPromptsSelect<false>
+      | SuggestedPromptsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     "payload-locked-documents":
@@ -170,6 +174,17 @@ export interface Query {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "suggested_prompts".
+ */
+export interface SuggestedPrompt {
+  id: number;
+  summary: string;
+  text: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -229,6 +244,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: "queries";
         value: number | Query;
+      } | null)
+    | ({
+        relationTo: "suggested_prompts";
+        value: number | SuggestedPrompt;
       } | null)
     | ({
         relationTo: "users";
@@ -317,6 +336,16 @@ export interface QueriesSelect<T extends boolean = true> {
   queryUid?: T;
   name?: T;
   description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "suggested_prompts_select".
+ */
+export interface SuggestedPromptsSelect<T extends boolean = true> {
+  summary?: T;
+  text?: T;
   updatedAt?: T;
   createdAt?: T;
 }

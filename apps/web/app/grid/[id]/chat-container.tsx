@@ -38,6 +38,7 @@ import { useGridSession } from "@/app/contexts/GridSession";
 import { ThemeContext } from "@/app/contexts/Theme";
 import { StructuredText, structuredText } from "@/app/helpers/text";
 import { useSessionStatus } from "@/app/hooks/useSessionStatus";
+import { getSuggestedPrompts } from "@/app/lib/payload";
 import { getSuggestions } from "@/app/lib/suggestions";
 import type { TChatMessage, TChatSection } from "@/app/lib/types";
 
@@ -290,11 +291,16 @@ export const ChatContainer = ({
   const { connectionStatus, latestUpdate } = useSessionStatus(id);
   console.log("*** session status ***", { connectionStatus, latestUpdate });
 
-  const followUps = [
-    "Show top traders by 24h PnL with their PnL, transaction count, and win rate.",
-    "Find tokens first seen on pump.fun within 1h that have no DEX trades. Show name, description, transaction count (sort default), and % price change since first trade",
-    "Show top 10 wallets holding most HNT tokens that have only traded once in the last 30 days.",
-  ];
+  const [followUps, setFollowUps] = useState<string[]>([]);
+  useEffect(() => {
+    getSuggestedPrompts().then(setFollowUps);
+  }, []);
+
+  // const followUps = [
+  //  "Show top traders by 24h PnL with their PnL, transaction count, and win rate.",
+  //  "Find tokens first seen on pump.fun within 1h that have no DEX trades. Show name, description, transaction count (sort default), and % price change since first trade",
+  //  "Show top 10 wallets holding most HNT tokens that have only traded once in the last 30 days.",
+  // ];
 
   useEffect(() => {
     // console.log("***", sects.slice(-1)[0]);
