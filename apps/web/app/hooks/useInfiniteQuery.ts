@@ -7,8 +7,6 @@ type ApiResponse = {
   rows: any[];
 };
 
-const ORIGIN_BASE = process.env.APEGPT_API_URL ?? "https://api.apegpt.ai"; // e.g. https://api.example.com
-
 const fetcher =
   (abortController: AbortController) =>
   async (key: ReturnType<typeof getKey>): Promise<ApiResponse> => {
@@ -44,7 +42,14 @@ const getKey = (
   if (!id || !sql) return null;
   if (previousPageData && previousPageData.rows.length === 0) return null; // no more pages
   const offset = pageIndex * limit;
-  return [ORIGIN_BASE, id, offset, limit, sortBy, sortOrder /* btoa(sql) */];
+  return [
+    `/api/apegpt/data`,
+    id,
+    offset,
+    limit,
+    sortBy,
+    sortOrder /* btoa(sql) */,
+  ];
 };
 
 export const useInfiniteQuery = ({
