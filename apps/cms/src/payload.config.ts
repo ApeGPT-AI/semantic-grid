@@ -12,6 +12,7 @@ import { Media } from './collections/Media'
 import { Dashboards } from '@/collections/Dashboards'
 import { DashboardItems } from '@/collections/DashboardItems'
 import { Queries } from '@/collections/Queries'
+import { SuggestedPrompts } from '@/collections/SuggestedPrompts'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -25,7 +26,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Dashboards, DashboardItems, Queries, Users, Media],
+  collections: [Dashboards, DashboardItems, Queries, SuggestedPrompts, Users, Media],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
