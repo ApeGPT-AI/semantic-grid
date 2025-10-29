@@ -1,7 +1,7 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
-  await db.execute(sql`
+  await payload.db.drizzle.execute(sql`
    CREATE TABLE "suggested_prompts" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"summary" varchar NOT NULL,
@@ -18,7 +18,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
-  await db.execute(sql`
+  await payload.db.drizzle.execute(sql`
    ALTER TABLE "suggested_prompts" DISABLE ROW LEVEL SECURITY;
   DROP TABLE "suggested_prompts" CASCADE;
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_suggested_prompts_fk";
