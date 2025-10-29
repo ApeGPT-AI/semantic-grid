@@ -191,7 +191,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Request
-         * @description Delete a request and revert the session to the state before this request was added.
+         * @description Delete a request and revert the session to the state
+         *     before this request was added.
          */
         delete: operations["delete_request_api_v1_request__request_id__delete"];
         options?: never;
@@ -326,8 +327,42 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Query Data */
-        get: operations["get_query_data_api_v1_query__query_id__get"];
+        /** Get Query Metadata */
+        get: operations["get_query_metadata_api_v1_query__query_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sse/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Request Updates
+         * @description Server-Sent Events endpoint for real-time request status updates.
+         *
+         *     Listens to PostgreSQL NOTIFY events on the 'request_update' channel
+         *     and streams updates for the specified session to connected clients.
+         *
+         *     The trigger sends notifications with this payload:
+         *     {
+         *         "request_id": "uuid",
+         *         "session_id": "uuid",
+         *         "status": "status_enum",
+         *         "updated_at": timestamp,
+         *         "has_response": bool,
+         *         "has_error": bool,
+         *         "sequence_number": int
+         *     }
+         */
+        get: operations["stream_request_updates_api_v1_sse__session_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1363,7 +1398,7 @@ export interface operations {
             };
         };
     };
-    get_query_data_api_v1_query__query_id__get: {
+    get_query_metadata_api_v1_query__query_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1381,6 +1416,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetQueryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_request_updates_api_v1_sse__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

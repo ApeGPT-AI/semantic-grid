@@ -588,39 +588,39 @@ async def interactive_flow(
 
 
     ### LINKED SESSION QUERY ###
-    if (
-        llm_response.request_type == InteractiveRequestType.linked_session
-        or req.request_type == InteractiveRequestType.linked_session
-    ):
+    # if (
+    #    req.request_type == InteractiveRequestType.linked_session
+    # ):
+    #
+    #    await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
+    #
+    #    # create new session
+    #    linked_session = CreateSessionModel(
+    #        name="New linked session",
+    #        tags="",
+    #        parent=req.session_id,
+    #        refs=req.refs,
+    #    )
+    #    session_response = await add_new_session(
+    #        session=linked_session, user_owner=req.user, db=db
+    #    )
+    #
+    #    await update_request_status(RequestStatus.done, None, db, req.request_id)
+    #    req.structured_response = StructuredResponse(
+    #        intent=llm_response.intent,
+    #        intro=llm_response.response,
+    #        sql=request_session.metadata.get("sql"),
+    #        metadata=request_session.metadata,
+    #        refs=req.refs,
+    #        linked_session_id=session_response.session_id,
+    #    )
+    #    req.status = RequestStatus.done
+    #    req.response = llm_response.response
+    #    return req
 
-        await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
-
-        # create new session
-        linked_session = CreateSessionModel(
-            name="New linked session",
-            tags="",
-            parent=req.session_id,
-            refs=req.refs,
-        )
-        session_response = await add_new_session(
-            session=linked_session, user_owner=req.user, db=db
-        )
-
-        await update_request_status(RequestStatus.done, None, db, req.request_id)
-        req.structured_response = StructuredResponse(
-            intent=llm_response.intent,
-            intro=llm_response.response,
-            sql=request_session.metadata.get("sql"),
-            metadata=request_session.metadata,
-            refs=req.refs,
-            linked_session_id=session_response.session_id,
-        )
-        req.status = RequestStatus.done
-        req.response = llm_response.response
-        return req
-
-    ### INTERACTIVE QUERY ###
-    elif llm_response.request_type == InteractiveRequestType.interactive_query:
+    ### INTERACTIVE QUERY OR LINKED SESSION ###
+    if (llm_response.request_type == InteractiveRequestType.linked_session
+        or llm_response.request_type == InteractiveRequestType.interactive_query):
 
         history = await get_history(db, req.session_id, include_responses=False)
 

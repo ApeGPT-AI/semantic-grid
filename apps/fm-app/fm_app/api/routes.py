@@ -327,7 +327,7 @@ def _build_regular_pagination(
     return base, order_by_prefix
 
 
-def build_sorted_paginated_sql(
+def build_sorted_paginated_sql_gen(
     user_sql: str,
     *,
     sort_by: Optional[str],
@@ -392,6 +392,39 @@ def build_sorted_paginated_sql(
     base += "\nLIMIT :limit\nOFFSET :offset"
 
     return base
+
+def build_sorted_paginated_sql(
+    user_sql: str,
+    *,
+    sort_by: Optional[str],
+    sort_order: str,
+    include_total_count: bool = False,
+) -> str:
+    # Build ORDER BY clause if sort_by is provided
+    order_clause = f"\n        ORDER BY {sort_by} {sort_order}" if sort_by else ""
+
+    if include_total_count:
+        return f"""
+                WITH orig_sql AS (
+          {user_sql}
+        )
+        SELECT
+          t.*,
+          COUNT(*) OVER () AS _inner_count
+        FROM orig_sql AS t{order_clause}
+        LIMIT :limit OFFSET :offset;
+        """
+    else:
+        return f"""
+                WITH orig_sql AS (
+          {user_sql}
+        )
+        SELECT
+          t.*
+        FROM orig_sql AS t{order_clause}
+        LIMIT :limit OFFSET :offset;
+        """
+
 
 async def verify_any_token(
     guest: dict = Depends(guest_auth.verify), user: dict = Depends(auth.verify)
@@ -1208,11 +1241,6 @@ async def get_query_data(
                     # Use canonical column name from metadata
                     sort_by = result
 
-                (
-                    f"{sort_by} {sort_order.upper()}"
-                    if sort_by and sort_order
-                    else None
-                )
                 # sql = replace_order_by(sql, new_order_clause)
                 # await update_request(
                 #    db=db,

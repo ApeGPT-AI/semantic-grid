@@ -342,43 +342,43 @@ async def _wrk_add_request(args):
                         ),
                     )
                 else:
-                    if structured_response.linked_session_id is not None:
-                        # launch a new worker task for linked session
-                        (response, task_id) = await add_request(
-                            user_owner=request.user,
-                            session_id=structured_response.linked_session_id,
-                            add_req=AddRequestModel(
-                                request=request.request,
-                                request_type=InteractiveRequestType.tbd,
-                                flow=request.flow,
-                                model=request.model,
-                                db=request.db,
-                                refs=request.refs,
-                            ),
-                            db=db,
-                        )
-                        wrk_req = WorkerRequest(
-                            session_id=structured_response.linked_session_id,
-                            request_id=response.request_id,
-                            user=request.user,
-                            request=request.request,
-                            request_type=InteractiveRequestType.tbd,
-                            response=None,
-                            status=RequestStatus.new,
-                            flow=request.flow,
-                            model=request.model,
-                            db=request.db,
-                            refs=request.refs,
-                        )
-                        wrk_arg = wrk_req.model_dump()
-                        task = wrk_add_request.apply_async(
-                            args=[wrk_arg], task_id=task_id
-                        )
-                        logging.info(
-                            "Send linked task",
-                            extra={"action": "send_task", "task_id": task},
-                        )
-                        print("spawned linked task", task_id)
+                    # if structured_response.linked_session_id is not None:
+                    #    # launch a new worker task for linked session
+                    #    (response, task_id) = await add_request(
+                    #        user_owner=request.user,
+                    #        session_id=structured_response.linked_session_id,
+                    #        add_req=AddRequestModel(
+                    #            request=request.request,
+                    #            request_type=InteractiveRequestType.tbd,
+                    #            flow=request.flow,
+                    #            model=request.model,
+                    #            db=request.db,
+                    #            refs=request.refs,
+                    #        ),
+                    #        db=db,
+                    #    )
+                    #    wrk_req = WorkerRequest(
+                    #        session_id=structured_response.linked_session_id,
+                    #        request_id=response.request_id,
+                    #        user=request.user,
+                    #        request=request.request,
+                    #        request_type=InteractiveRequestType.tbd,
+                    #        response=None,
+                    #        status=RequestStatus.new,
+                    #        flow=request.flow,
+                    #        model=request.model,
+                    #        db=request.db,
+                    #        refs=request.refs,
+                    #    )
+                    #    wrk_arg = wrk_req.model_dump()
+                    #    task = wrk_add_request.apply_async(
+                    #        args=[wrk_arg], task_id=task_id
+                    #    )
+                    #    logging.info(
+                    #        "Send linked task",
+                    #        extra={"action": "send_task", "task_id": task},
+                    #    )
+                    #    print("spawned linked task", task_id)
 
                     await update_request(
                         db=db,

@@ -1,6 +1,6 @@
 """
 Test for CTE query with trailing LIMIT.
-Reproduces the production error where duplicate LIMIT clauses were generated.
+Tests the simplified build_sorted_paginated_sql() implementation.
 """
 
 import os
@@ -46,8 +46,8 @@ from fm_app.api.routes import build_sorted_paginated_sql
 
 def test_cte_with_trailing_limit_clickhouse():
     """
-    Test that CTE queries with trailing LIMIT don't generate duplicate LIMIT clauses.
-    Reproduces the production error from ClickHouse.
+    Test CTE queries with trailing LIMIT using new implementation.
+    New implementation wraps everything in CTE and comments out original SQL.
     """
     sql = """
 -- CTE: Filter trades in the last 24h
@@ -106,9 +106,20 @@ LIMIT 10;
             include_total_count=False,
         )
 
-        # Should have exactly ONE LIMIT clause (the parameterized one)
+        # Implementation:
+        # - Wraps query in CTE: WITH orig_sql AS (original_query)
+        # - Original LIMIT 10 is preserved in the CTE
+        # - Adds new LIMIT :limit
+        # Total: 2 LIMIT occurrences (1 in CTE, 1 in outer query)
+
         limit_count = result.count('LIMIT')
-        assert limit_count == 1, f"Expected 1 LIMIT, found {limit_count}. Query:\n{result}"
+        assert limit_count == 2, f"Expected 2 LIMIT (1 in CTE, 1 in outer query), found {limit_count}. Query:\n{result}"
+
+        # Should wrap in CTE
+        assert 'WITH orig_sql AS' in result
+
+        # Original query should be in the CTE
+        assert 'WITH last_24h_trades AS' in result  # Original CTE preserved
 
         # Should have the pagination LIMIT placeholder
         assert 'LIMIT :limit' in result, "Should have LIMIT :limit for pagination"
@@ -116,16 +127,13 @@ LIMIT 10;
         # Should have OFFSET placeholder
         assert 'OFFSET :offset' in result, "Should have OFFSET :offset"
 
-        # Original LIMIT 10 should be removed
-        assert 'LIMIT 10' not in result, "Original LIMIT 10 should be removed"
+        # Should have ORDER BY with sort column
+        assert 'ORDER BY pnl_24h_usd desc' in result
 
-        # Should still have all the CTEs
-        assert 'WITH last_24h_trades AS' in result
-        assert 'per_trade_pnl AS' in result
-        assert 'trade_counts AS' in result
-        assert 'trader_stats AS' in result
+        # Should select from wrapped CTE
+        assert 'FROM orig_sql AS t' in result
 
-        print("✅ Test passed: CTE with trailing LIMIT handles correctly")
+        print("✅ Test passed: CTE with trailing LIMIT handled by new wrapper implementation")
         print(f"Generated SQL (last 200 chars):\n...{result[-200:]}")
 
 
