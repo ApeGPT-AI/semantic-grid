@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import type { SSERequestUpdate, SSEConnectionStatus } from "@/app/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import type { SSEConnectionStatus, SSERequestUpdate } from "@/app/lib/types";
 
 interface UseSessionStatusOptions {
   /**
@@ -126,13 +127,10 @@ export const useSessionStatus = (
     onConnectionChangeRef.current?.(status);
   }, []);
 
-  const handleError = useCallback(
-    (err: Error) => {
-      setError(err);
-      onErrorRef.current?.(err);
-    },
-    [],
-  );
+  const handleError = useCallback((err: Error) => {
+    setError(err);
+    onErrorRef.current?.(err);
+  }, []);
 
   const connect = useCallback(() => {
     if (!sessionId || !enabled) {
@@ -226,9 +224,7 @@ export const useSessionStatus = (
           // Max reconnect attempts reached or auto-reconnect disabled
           eventSource.close();
           if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-            console.error(
-              "[SSE] Max reconnection attempts reached, giving up",
-            );
+            console.error("[SSE] Max reconnection attempts reached, giving up");
           }
         }
       };
@@ -236,7 +232,9 @@ export const useSessionStatus = (
       console.error("[SSE] Failed to create EventSource:", err);
       updateConnectionStatus("error");
       handleError(
-        err instanceof Error ? err : new Error("Failed to create SSE connection"),
+        err instanceof Error
+          ? err
+          : new Error("Failed to create SSE connection"),
       );
     }
   }, [

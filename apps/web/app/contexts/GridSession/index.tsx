@@ -28,8 +28,8 @@ import { increaseTrialCount } from "@/app/chat/actions";
 import { StyledValue } from "@/app/components/StyledValue";
 import { AppContext } from "@/app/contexts/App";
 import { isSolanaAddress, isSolanaSignature } from "@/app/helpers/cell";
-import { pollForResponse } from "@/app/helpers/chat";
 import { useInfiniteQuery } from "@/app/hooks/useInfiniteQuery";
+import { useSessionStatus } from "@/app/hooks/useSessionStatus";
 import { useUserSession } from "@/app/hooks/useUserSession";
 import type {
   TChatMessage,
@@ -243,13 +243,13 @@ const withNewMessage =
   ];
 
 const withPendingMessage =
-  (status: TResponseResult, text: string) => (ss: TChatSection[]) =>
+  (status: TResponseResult, text: string | undefined) => (ss: TChatSection[]) =>
     ss.map((s, idx, allS) => ({
       ...s,
       status: idx < allS.length - 1 ? s.status : status.status,
       chat:
         // eslint-disable-next-line no-nested-ternary
-        idx < allS.length - 1
+        idx < allS.length - 1 || text === undefined
           ? s.chat
           : s.chat
             ? [...s.chat.slice(0, s.chat.length - 1), text]
@@ -263,7 +263,7 @@ const withPendingMessage =
                 ...s.messages.slice(0, s.messages.length - 1),
                 {
                   uid: status.request_id || "pending",
-                  text,
+                  text: s.messages[s.messages.length - 1]?.text || text,
                   isBot: true,
                   status: status.status,
                 },
@@ -271,7 +271,7 @@ const withPendingMessage =
             : [
                 {
                   uid: status.request_id || "pending",
-                  text,
+                  text: text || "",
                   isBot: true,
                   status: status.status,
                 },
@@ -768,8 +768,60 @@ export const GridSessionProvider = ({
     }
   };
 
+  const { connectionStatus, latestUpdate } = useSessionStatus(sessionId);
+
   // WAIT EFFECT == RESPONSE POLLING FOR PENDING REQUEST
   useEffect(() => {
+    if (
+      latestUpdate?.status !== "Done" &&
+      latestUpdate?.status !== "Error" &&
+      !pending
+    ) {
+      setPending(true);
+      scrollToBottom();
+    }
+
+    if (latestUpdate?.status === "Intent") {
+      mutate().then(() =>
+        fetch(
+          `/api/apegpt/message?sessionId=${sessionId}&seqNum=${latestUpdate.sequence_number}`,
+        )
+          .then((r) => r.json())
+          .then((status: TResponseResult) => {
+            setSects(withPendingMessage(status, status.intent || ""));
+          }),
+      );
+    }
+
+    if (latestUpdate?.status && latestUpdate?.status !== "Done") {
+      setSects(
+        withPendingMessage(
+          { status: latestUpdate.status } as TResponseResult,
+          undefined,
+        ),
+      );
+    }
+
+    if (latestUpdate?.status === "Done" || latestUpdate?.status === "Error") {
+      fetch(
+        `/api/apegpt/message?sessionId=${sessionId}&seqNum=${latestUpdate.sequence_number}`,
+      )
+        .then((r) => r.json())
+        .then((status: TResponseResult) => {
+          setSects(withPendingMessage(status, status.response || ""));
+        })
+        .then((_) => increaseTrialCount())
+        .then(() => setPrompt(""))
+        .then(() => setPending(false))
+        .then(() => scrollToBottom())
+        .catch((e) => {
+          console.error("error response", e);
+          setPending(false);
+          setSects(withErrorResponse({ err: e } as TResponseResult));
+        });
+    }
+
+    /*
     if (pendingRequest) {
       console.log("pendingRequest", pendingRequest);
       // newPendingMessage(prompt)]);
@@ -821,7 +873,8 @@ export const GridSessionProvider = ({
           setSects(withErrorResponse({ err: e } as TResponseResult));
         });
     }
-  }, [pendingRequest]);
+     */
+  }, [connectionStatus, latestUpdate]);
 
   useEffect(() => {
     setPrompt("");
@@ -840,12 +893,12 @@ export const GridSessionProvider = ({
         sessionId,
         refs,
         queryId: query?.query_id,
-      })
-        .then((request) => {
-          console.log("request", request);
-          setSects(withNewMessage(request as any, prompt));
-          return request;
-        })
+      }).then((request) => {
+        console.log("request", request);
+        setSects(withNewMessage(request as any, prompt));
+        return request;
+      });
+      /*
         .then((req) => {
           if (scrollRef.current) {
             scrollToBottom();
@@ -908,6 +961,7 @@ export const GridSessionProvider = ({
           setPending(false);
           setSects(withErrorResponse({ err: e } as TResponseResult));
         });
+         */
     }
   }, [prompt]);
 

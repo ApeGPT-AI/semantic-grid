@@ -1,5 +1,7 @@
 import useSWR from "swr";
 
+import type { TUserSession } from "@/app/lib/types";
+
 export const UnauthorizedError = new Error("Unauthorized");
 
 export const useUserSession = (sessionId: string) => {
@@ -8,7 +10,7 @@ export const useUserSession = (sessionId: string) => {
       if (res.ok) return res.json();
       throw UnauthorizedError;
     });
-  const { data, error, isLoading, mutate } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR<TUserSession>(
     `/api/apegpt/sessions/${sessionId}`,
     fetcher,
     {

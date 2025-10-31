@@ -1,24 +1,15 @@
 "use client";
 
-import { ArrowRight, LinkRounded, OpenInNew } from "@mui/icons-material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import type { StepIconProps } from "@mui/material";
 import {
   alpha,
   Box,
   Container,
   Fab,
-  IconButton,
   Paper,
   Stack,
-  Step,
-  StepLabel,
-  styled,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { keyframes } from "@mui/material/styles";
-import Link from "next/link";
 import React, {
   useCallback,
   useContext,
@@ -27,17 +18,15 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Markdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import remarkGfm from "remark-gfm";
 
+import { ResponseTextMessage } from "@/app/components/chat-box/ResponseTextMessage";
+import { ResponseTextStatus } from "@/app/components/chat-box/ResponseTextStatus";
 import CopyQueryUrl from "@/app/components/CopyQueryUrl";
 import SaveQueryUrl from "@/app/components/SaveQueryUrl";
 import ShareQueryUrl from "@/app/components/ShareQueryUrl";
 import { useGridSession } from "@/app/contexts/GridSession";
 import { ThemeContext } from "@/app/contexts/Theme";
-import { StructuredText, structuredText } from "@/app/helpers/text";
-import { useSessionStatus } from "@/app/hooks/useSessionStatus";
+import { StructuredText } from "@/app/helpers/text";
 import { getNewSessionWelcome, getSuggestedPrompts } from "@/app/lib/payload";
 import type { SuggestedPrompt } from "@/app/lib/payload-types";
 import { getSuggestions } from "@/app/lib/suggestions";
@@ -45,203 +34,8 @@ import type { TChatMessage, TChatSection } from "@/app/lib/types";
 
 import { QueryBox } from "./query-box";
 
-// Define the keyframes for pulsing opacity
-const pulse = keyframes`
-  0% { opacity: 1; }
-  50% { opacity: 0.1; }
-  100% { opacity: 1; }
-`;
-
-// Styled Typography with pulsing animation
-const PulsingText = styled(Typography)(({ theme }) => ({
-  color: theme.palette.grey[500],
-  animation: `${pulse} 1.5s ease-in-out infinite`,
-}));
-
-const Status: Record<string, string> = {
-  New: "Starting...",
-  Intent: "Analyzing intent...",
-  SQL: "Generating query...",
-  Retry: "Refining response...",
-  DataFetch: "Fetching data...",
-  Finalizing: "Finalizing...",
-  Cancelled: "Cancelled",
-  Error: "Error",
-};
-
-const RequestStages = ["Intent", "SQL", "Finalizing"];
-
-const CustomStepIcon = (props: StepIconProps) => (
-  <ArrowRight sx={{ fontSize: "small", ml: "5px" }} />
-);
-
-const remapAnchor = ({ children, href, ...props }: any) => (
-  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-      style={{ textDecoration: "none", color: "inherit" }}
-    >
-      {children}
-    </a>
-    <Tooltip title="View on Solscan">
-      <IconButton
-        component="a"
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        size="small"
-        sx={{ p: 0.5 }}
-      >
-        <OpenInNew
-          fontSize="small"
-          sx={{ color: (theme) => theme.palette.primary.main }}
-        />
-      </IconButton>
-    </Tooltip>
-  </span>
-);
-
 const rows = (count: number | undefined) =>
   count ? ` ${count?.toLocaleString()} rows` : "";
-
-export const ResponseTextMessage = ({
-  text,
-  status,
-  linkedSession,
-}: {
-  text?: string;
-  status?: string;
-  linkedSession?: string; // whether to show the link icon
-}) => (
-  <Box
-    sx={{
-      "& *": {
-        fontSize: "1rem",
-        border: "none",
-        fontFamily: (theme) => theme.typography.fontFamily,
-      },
-      display: "inline-block",
-      "&:hover .hover-span": {
-        visibility: "visible",
-      },
-    }}
-  >
-    {text && status !== "Error" && (
-      <Box sx={{ "& a:hover": { color: "primary.main" } }}>
-        {!linkedSession && (
-          <Markdown
-            key={text?.slice(0, 32)}
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              a: remapAnchor,
-            }}
-          >
-            {structuredText(text)}
-          </Markdown>
-        )}
-        {linkedSession && (
-          <Stack direction="row" alignItems="center">
-            <Markdown
-              key={text?.slice(0, 32)}
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
-            >
-              Created linked query {/* text */}
-            </Markdown>
-            <Tooltip title="Open linked query">
-              <Link href={`/grid/${linkedSession}`}>
-                <LinkRounded
-                  sx={{
-                    ml: 0.5,
-                    verticalAlign: "middle",
-                    // "&:hover": {
-                    color: (theme) => theme.palette.primary.main,
-                    // },
-                  }}
-                />
-              </Link>
-            </Tooltip>
-          </Stack>
-        )}
-      </Box>
-    )}
-  </Box>
-);
-
-export const ResponseTextStatus = ({
-  status,
-  rowCount,
-  linkedSession,
-  isLoading = false,
-  lastMessage = false,
-}: {
-  status?: string;
-  rowCount?: number;
-  isLoading?: boolean;
-  lastMessage?: boolean;
-  linkedSession?: string; // whether to show the link icon
-}) => {
-  if (
-    lastMessage &&
-    (status === "Cancelled" || status === "Error" || status === "Done")
-  ) {
-    if (status === "Done" && (rowCount || 0) === 0 && !isLoading) {
-      return (
-        <Typography variant="body2" color="textSecondary">
-          (No data returned)
-        </Typography>
-      );
-    }
-    return Status[status] ? (
-      <Typography variant="body1">{Status[status]}</Typography>
-    ) : null;
-  }
-
-  if (lastMessage && status && RequestStages.includes(status)) {
-    const currentStage = RequestStages.indexOf(status);
-    return (
-      <Stack direction="row" alignItems="center">
-        {RequestStages.map((s, idx) => (
-          <Step key={s} completed={s === status}>
-            <StepLabel
-              sx={{
-                "& .MuiStepLabel-iconContainer": {
-                  display: idx === 0 ? "none" : "flex", // hide icon container if no icon
-                },
-                "& span": { ml: 0, pl: 0 },
-              }}
-              StepIconComponent={idx === 0 ? () => null : CustomStepIcon}
-            >
-              {s !== status && idx < currentStage && (
-                <Typography variant="body2">{s}</Typography>
-              )}
-              {s !== status && idx > currentStage && (
-                <Typography variant="body2" color="darkgrey">
-                  {s}
-                </Typography>
-              )}
-              {s === status && <PulsingText variant="body2">{s}</PulsingText>}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stack>
-    );
-    // return <PulsingText variant="body2">{Status[status]}</PulsingText>;
-  }
-  if (status === "Error") {
-    return (
-      <Typography variant="body1" color="warning">
-        Error
-      </Typography>
-    );
-  }
-  if (status) return null;
-  return null;
-};
 
 const isVisible = (text: string | undefined = "") =>
   text !== "Starting from existing query";
@@ -288,9 +82,6 @@ export const ChatContainer = ({
   // const [followUps, setFollowUps] = useState<string[]>([]);
   const [showButton, setShowButton] = useState(false);
   const [inputHeight, setInputHeight] = useState(0);
-
-  const { connectionStatus, latestUpdate } = useSessionStatus(id);
-  // console.log("*** session status ***", { connectionStatus, latestUpdate });
 
   const [welcome, setWelcome] = useState<string>("");
   useEffect(() => {
@@ -400,6 +191,18 @@ export const ChatContainer = ({
     }
   }, [newCol]);
 
+  useEffect(() => {
+    // on page load, set requestId to the last one in the sections
+    if (sects.length > 0) {
+      const lastSection = sects[sects.length - 1];
+      if (lastSection.requestId) {
+        setRequestId(lastSection.requestId);
+        // eslint-disable-next-line no-restricted-globals
+        history.pushState(null, "", `#${lastSection.requestId}`);
+      }
+    }
+  }, [sects]);
+
   const handleSectionClick = (section: TChatSection) => {
     console.log("section selected", requestId, section);
     onSelectColumn({ field: section.id, headerName: section.label });
@@ -418,8 +221,8 @@ export const ChatContainer = ({
         }
       } else if (!!requestId && requestId === section.requestId) {
         // eslint-disable-next-line no-restricted-globals
-        history.pushState(null, "", `/grid/${id}`);
-        setRequestId(undefined);
+        // history.pushState(null, "", `/grid/${id}`);
+        // setRequestId(undefined);
       }
     }
   };
