@@ -28,6 +28,7 @@ import {
 } from "@/app/helpers/chart";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useQuery } from "@/app/hooks/useQuery";
+import { useSessionStatus } from "@/app/hooks/useSessionStatus";
 import type { TColumn } from "@/app/lib/types";
 
 import { ChatContainer } from "./chat-container";
@@ -47,7 +48,7 @@ export interface IInteractiveDashboardProps {
   };
   id?: string;
   // error?: any;
-  pendingRequest?: { session_id: string; sequence_number: number } | null; // Pending message, if any
+  // pendingRequest?: { session_id: string; sequence_number: number } | null; // Pending message, if any
   ancestors?: { id: string; name: string }[]; // Ancestors of the current chat
   // successors?: any[]; // Children of the current chat
 }
@@ -77,7 +78,7 @@ const CustomTabPanel = (props: TabPanelProps) => {
 export const InteractiveDashboard = ({
   id,
   metadata,
-  pendingRequest,
+  // pendingRequest,
   ancestors = [],
 }: IInteractiveDashboardProps) => {
   const {
@@ -112,6 +113,14 @@ export const InteractiveDashboard = ({
 
   const [, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
+  const { connectionStatus, latestUpdate } = useSessionStatus(id);
+  const pendingRequest = useMemo(
+    () =>
+      latestUpdate?.status !== "Done" &&
+      !latestUpdate?.error &&
+      !latestUpdate?.status !== "Cancelled",
+    [latestUpdate],
+  );
 
   const query = useMemo(() => {
     if (!sections || sections.length === 0) {
@@ -154,6 +163,7 @@ export const InteractiveDashboard = ({
       Boolean((pendingRequest as any)?.query?.sql),
     [hasData, pendingRequest],
   );
+  console.log("showGrid", showGrid, "hasData", hasData);
 
   useEffect(() => {
     // setLeftWidth(window.innerWidth);
