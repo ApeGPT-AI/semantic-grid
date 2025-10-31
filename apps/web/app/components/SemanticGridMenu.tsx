@@ -1,5 +1,4 @@
-import { AutoAwesome } from "@mui/icons-material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { AutoAwesome, ExpandMore } from "@mui/icons-material";
 import {
   Accordion,
   AccordionDetails,
@@ -221,7 +220,7 @@ export const SemanticGridMenu = ({
               e.stopPropagation();
             }}
           >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<ExpandMore />}>
               <Typography variant="body1">Latest 10</Typography>
             </AccordionSummary>
             <AccordionDetails>
@@ -260,7 +259,7 @@ export const SemanticGridMenu = ({
               e.stopPropagation();
             }}
           >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<ExpandMore />}>
               <Typography variant="body1">All other</Typography>
             </AccordionSummary>
             <AccordionDetails>

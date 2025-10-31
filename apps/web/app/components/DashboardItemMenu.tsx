@@ -1,9 +1,18 @@
-import { MoreVert } from "@mui/icons-material";
+import {
+  AutoAwesome,
+  Cached,
+  ContentCopy,
+  Download,
+  Fullscreen,
+  MoreVert,
+} from "@mui/icons-material";
 import {
   Box,
   ClickAwayListener,
   Divider,
   IconButton,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   MenuList,
   Paper,
@@ -22,6 +31,7 @@ export type TItemMenu = {
   isSeparator?: boolean;
   destructive?: boolean;
   disabled?: boolean;
+  icon?: React.ReactNode;
 };
 
 export const DashboardItemMenu = ({
@@ -125,22 +135,22 @@ export const DashboardItemMenu = ({
           { label: "Show as Pie Chart", key: "view-chart-pie" },
           { label: "Show as Line Chart", key: "view-chart-line" },
           { label: "sep1", isSeparator: true },
-          { label: "Refresh", key: "refresh" },
+          { label: "Refresh", key: "refresh", icon: <Cached /> },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "Edit with AI", key: "edit" },
-          { label: "Enter Full Screen", key: "item" },
-          { label: "Copy URL", key: "url" },
-          { label: "Download CSV", key: "csv" },
+          { label: "Edit with AI", key: "edit", icon: <AutoAwesome /> },
+          { label: "Enter Full Screen", key: "item", icon: <Fullscreen /> },
+          { label: "Copy URL", key: "url", icon: <ContentCopy /> },
+          { label: "Download CSV", key: "csv", icon: <Download /> },
           { label: "sep2", isSeparator: true },
           { label: "Delete", key: "delete", destructive: true },
         ]
       : [
-          { label: "Refresh", key: "refresh" },
+          { label: "Refresh", key: "refresh", icon: <Cached /> },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "Edit with AI", key: "copy" },
-          { label: "Enter Full Screen", key: "item" },
-          { label: "Copy URL", key: "url" },
-          { label: "Download CSV", key: "csv" },
+          { label: "Edit with AI", key: "copy", icon: <AutoAwesome /> },
+          { label: "Enter Full Screen", key: "item", icon: <Fullscreen /> },
+          { label: "Copy URL", key: "url", icon: <ContentCopy /> },
+          { label: "Download CSV", key: "csv", icon: <Download /> },
         ];
 
   return (
@@ -209,9 +219,12 @@ export const DashboardItemMenu = ({
                       }),
                     }}
                   >
-                    {mi.label === "Refreshed"
-                      ? `Last fetched: ${!fetchedAt ? "never" : formatDistance(new Date(fetchedAt || 0), new Date(), { addSuffix: true })}`
-                      : mi.label}
+                    <ListItemIcon>{mi.icon}</ListItemIcon>
+                    <ListItemText>
+                      {mi.label === "Refreshed"
+                        ? `Last fetched: ${!fetchedAt ? "never" : formatDistance(new Date(fetchedAt || 0), new Date(), { addSuffix: true })}`
+                        : mi.label}
+                    </ListItemText>
                   </MenuItem>
                 ),
               )}

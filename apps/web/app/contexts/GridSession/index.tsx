@@ -773,6 +773,7 @@ export const GridSessionProvider = ({
   // WAIT EFFECT == RESPONSE POLLING FOR PENDING REQUEST
   useEffect(() => {
     if (
+      latestUpdate?.status &&
       latestUpdate?.status !== "Done" &&
       latestUpdate?.status !== "Error" &&
       !pending
