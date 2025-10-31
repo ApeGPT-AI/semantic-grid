@@ -3,6 +3,7 @@ import React from "react";
 import { ensureSession } from "@/app/actions";
 import GridItemNavClient from "@/app/components/GridItemNavClient";
 import { ItemViewProvider } from "@/app/contexts/ItemView";
+import { SessionProvider } from "@/app/contexts/SessionStatus";
 import { getAllUserRequestsForSession, getUserSession } from "@/app/lib/gptAPI";
 import { getDashboards } from "@/app/lib/payload";
 
@@ -23,17 +24,19 @@ const GridLayout = async ({
 
   return (
     <ItemViewProvider itemId={id} defaultView="grid">
-      <GridItemNavClient
-        dashboards={dashboards}
-        uid={uid || undefined}
-        dashboardId={dashboardId}
-        id={id}
-        metadata={metadata}
-        queryUid={lastMessage?.query?.query_id}
-        lastMessage={lastMessage}
-      />
-      {/* <NavDrawer anchor="right" base="grid" /> */}
-      <main>{children}</main>
+      <SessionProvider initialSessionId={id}>
+        <GridItemNavClient
+          dashboards={dashboards}
+          uid={uid || undefined}
+          dashboardId={dashboardId}
+          id={id}
+          metadata={metadata}
+          queryUid={lastMessage?.query?.query_id}
+          lastMessage={lastMessage}
+        />
+        {/* <NavDrawer anchor="right" base="grid" /> */}
+        <main>{children}</main>
+      </SessionProvider>
     </ItemViewProvider>
   );
 };

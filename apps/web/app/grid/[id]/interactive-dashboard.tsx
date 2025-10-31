@@ -19,6 +19,7 @@ import HighlightedSQL from "@/app/components/SqlView";
 import { AppContext } from "@/app/contexts/App";
 import { useGridSession } from "@/app/contexts/GridSession";
 import { useItemViewContext } from "@/app/contexts/ItemView";
+import { useSessionContext } from "@/app/contexts/SessionStatus";
 import { ThemeContext } from "@/app/contexts/Theme";
 import {
   buildGridColumns,
@@ -28,7 +29,6 @@ import {
 } from "@/app/helpers/chart";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useQuery } from "@/app/hooks/useQuery";
-import { useSessionStatus } from "@/app/hooks/useSessionStatus";
 import type { TColumn } from "@/app/lib/types";
 
 import { ChatContainer } from "./chat-container";
@@ -113,7 +113,7 @@ export const InteractiveDashboard = ({
 
   const [, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
-  const { latestUpdate } = useSessionStatus(id || "");
+  const { latestUpdate } = useSessionContext();
   const pendingRequest = useMemo(
     () =>
       latestUpdate?.status !== "Done" &&

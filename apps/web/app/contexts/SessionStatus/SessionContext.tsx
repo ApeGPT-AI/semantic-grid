@@ -1,49 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+"use client";
+
+import type { ReactNode } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type { SSEConnectionStatus, SSERequestUpdate } from "@/app/lib/types";
 
-interface UseSessionStatusOptions {
-  /**
-   * Enable SSE connection. If false, no connection is established.
-   * Default: true
-   */
-  enabled?: boolean;
-
-  /**
-   * Automatically reconnect on connection errors
-   * Default: true
-   */
-  autoReconnect?: boolean;
-
-  /**
-   * Maximum number of reconnection attempts
-   * Default: 5
-   */
-  maxReconnectAttempts?: number;
-
-  /**
-   * Delay between reconnection attempts in milliseconds
-   * Default: 2000 (2 seconds)
-   */
-  reconnectDelay?: number;
-
-  /**
-   * Callback for status updates
-   */
-  onUpdate?: (update: SSERequestUpdate) => void;
-
-  /**
-   * Callback for connection status changes
-   */
-  onConnectionChange?: (status: SSEConnectionStatus) => void;
-
-  /**
-   * Callback for errors
-   */
-  onError?: (error: Error) => void;
-}
-
-interface UseSessionStatusReturn {
+interface SessionContextValue {
   /**
    * Current connection status
    */
@@ -68,37 +37,84 @@ interface UseSessionStatusReturn {
    * Manually disconnect
    */
   disconnect: () => void;
+
+  /**
+   * Update the session ID (triggers reconnection)
+   */
+  setSessionId: (sessionId: string | null) => void;
+
+  /**
+   * Current session ID
+   */
+  sessionId: string | null;
 }
 
+interface SessionProviderProps {
+  children: ReactNode;
+  /**
+   * Initial session ID (can be changed via setSessionId)
+   */
+  initialSessionId?: string | null;
+  /**
+   * Enable SSE connection. If false, no connection is established.
+   * Default: true
+   */
+  enabled?: boolean;
+  /**
+   * Automatically reconnect on connection errors
+   * Default: true
+   */
+  autoReconnect?: boolean;
+  /**
+   * Maximum number of reconnection attempts
+   * Default: 5
+   */
+  maxReconnectAttempts?: number;
+  /**
+   * Delay between reconnection attempts in milliseconds
+   * Default: 2000 (2 seconds)
+   */
+  reconnectDelay?: number;
+  /**
+   * Callback for status updates
+   */
+  onUpdate?: (update: SSERequestUpdate) => void;
+  /**
+   * Callback for connection status changes
+   */
+  onConnectionChange?: (status: SSEConnectionStatus) => void;
+  /**
+   * Callback for errors
+   */
+  onError?: (error: Error) => void;
+}
+
+const SessionContext = createContext<SessionContextValue | undefined>(
+  undefined,
+);
+
 /**
- * Hook to subscribe to real-time request status updates via SSE
+ * Provider component that manages a single SSE connection per app instance
  *
  * @example
  * ```tsx
- * const { connectionStatus, latestUpdate } = useSessionStatus(sessionId, {
- *   onUpdate: (update) => {
- *     console.log('Status update:', update);
- *   },
- *   onError: (error) => {
- *     console.error('SSE error:', error);
- *   }
- * });
+ * <SessionProvider initialSessionId={sessionId}>
+ *   <App />
+ * </SessionProvider>
  * ```
  */
-export const useSessionStatus = (
-  sessionId: string | null,
-  options: UseSessionStatusOptions = {},
-): UseSessionStatusReturn => {
-  const {
-    enabled = true,
-    autoReconnect = true,
-    maxReconnectAttempts = 5,
-    reconnectDelay = 2000,
-    onUpdate,
-    onConnectionChange,
-    onError,
-  } = options;
-
+export const SessionProvider = ({
+  children,
+  initialSessionId = null,
+  enabled = true,
+  autoReconnect = true,
+  maxReconnectAttempts = 5,
+  reconnectDelay = 2000,
+  onUpdate,
+  onConnectionChange,
+  onError,
+}: SessionProviderProps) => {
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [connectionStatus, setConnectionStatus] =
     useState<SSEConnectionStatus>("disconnected");
   const [latestUpdate, setLatestUpdate] = useState<SSERequestUpdate | null>(
@@ -150,7 +166,7 @@ export const useSessionStatus = (
 
     try {
       updateConnectionStatus("connecting");
-      console.log(`[SSE] Connecting to session ${sessionId}`);
+      console.log(`[SessionContext] Connecting to session ${sessionId}`);
 
       // Create EventSource with credentials to send cookies (Auth0/guest token)
       const eventSource = new EventSource(`/api/apegpt/sse/${sessionId}`, {
@@ -160,7 +176,7 @@ export const useSessionStatus = (
 
       // Handle connection established
       eventSource.addEventListener("connected", (event) => {
-        console.log("[SSE] Connected:", event.data);
+        console.log("[SessionContext] Connected:", event.data);
         updateConnectionStatus("connected");
         reconnectAttemptsRef.current = 0; // Reset reconnect counter
         setError(null);
@@ -170,12 +186,12 @@ export const useSessionStatus = (
       eventSource.addEventListener("request_update", (event) => {
         try {
           const update: SSERequestUpdate = JSON.parse(event.data);
-          console.log("[SSE] Request update:", update);
+          console.log("[SessionContext] Request update:", update);
 
           setLatestUpdate(update);
           onUpdateRef.current?.(update);
         } catch (err) {
-          console.error("[SSE] Failed to parse update:", err);
+          console.error("[SessionContext] Failed to parse update:", err);
           handleError(
             err instanceof Error ? err : new Error("Failed to parse SSE event"),
           );
@@ -186,17 +202,17 @@ export const useSessionStatus = (
       eventSource.addEventListener("error", (event) => {
         try {
           const errorData = JSON.parse((event as MessageEvent).data);
-          console.error("[SSE] Server error:", errorData);
+          console.error("[SessionContext] Server error:", errorData);
           handleError(new Error(errorData.error || "SSE server error"));
         } catch {
           // Not a JSON error event, handle as connection error
-          console.error("[SSE] Connection error");
+          console.error("[SessionContext] Connection error");
         }
       });
 
       // Handle connection errors (network issues, server down, etc.)
       eventSource.onerror = (event) => {
-        console.error("[SSE] Connection error:", event);
+        console.error("[SessionContext] Connection error:", event);
         updateConnectionStatus("error");
 
         const err = new Error("SSE connection failed");
@@ -210,7 +226,7 @@ export const useSessionStatus = (
         ) {
           reconnectAttemptsRef.current += 1;
           console.log(
-            `[SSE] Reconnecting (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`,
+            `[SessionContext] Reconnecting (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`,
           );
 
           // Close current connection
@@ -224,12 +240,14 @@ export const useSessionStatus = (
           // Max reconnect attempts reached or auto-reconnect disabled
           eventSource.close();
           if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-            console.error("[SSE] Max reconnection attempts reached, giving up");
+            console.error(
+              "[SessionContext] Max reconnection attempts reached, giving up",
+            );
           }
         }
       };
     } catch (err) {
-      console.error("[SSE] Failed to create EventSource:", err);
+      console.error("[SessionContext] Failed to create EventSource:", err);
       updateConnectionStatus("error");
       handleError(
         err instanceof Error
@@ -248,7 +266,7 @@ export const useSessionStatus = (
   ]);
 
   const disconnect = useCallback(() => {
-    console.log("[SSE] Manually disconnecting");
+    console.log("[SessionContext] Manually disconnecting");
     isManualDisconnectRef.current = true;
 
     if (reconnectTimeoutRef.current) {
@@ -265,7 +283,7 @@ export const useSessionStatus = (
   }, [updateConnectionStatus]);
 
   const reconnect = useCallback(() => {
-    console.log("[SSE] Manual reconnect requested");
+    console.log("[SessionContext] Manual reconnect requested");
     isManualDisconnectRef.current = false;
     reconnectAttemptsRef.current = 0;
     disconnect();
@@ -287,11 +305,41 @@ export const useSessionStatus = (
     };
   }, [sessionId, enabled, connect, disconnect]);
 
-  return {
+  const value: SessionContextValue = {
     connectionStatus,
     latestUpdate,
     error,
     reconnect,
     disconnect,
+    setSessionId,
+    sessionId,
   };
+
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
+};
+
+/**
+ * Hook to access the session SSE connection
+ *
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const { connectionStatus, latestUpdate, setSessionId } = useSessionContext();
+ *
+ *   useEffect(() => {
+ *     setSessionId(newSessionId);
+ *   }, [newSessionId]);
+ *
+ *   return <div>Status: {connectionStatus}</div>;
+ * }
+ * ```
+ */
+export const useSessionContext = (): SessionContextValue => {
+  const context = useContext(SessionContext);
+  if (context === undefined) {
+    throw new Error("useSessionContext must be used within a SessionProvider");
+  }
+  return context;
 };

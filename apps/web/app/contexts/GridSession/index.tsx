@@ -27,9 +27,9 @@ import { createRequest } from "@/app/actions";
 import { increaseTrialCount } from "@/app/chat/actions";
 import { StyledValue } from "@/app/components/StyledValue";
 import { AppContext } from "@/app/contexts/App";
+import { useSessionContext } from "@/app/contexts/SessionStatus";
 import { isSolanaAddress, isSolanaSignature } from "@/app/helpers/cell";
 import { useInfiniteQuery } from "@/app/hooks/useInfiniteQuery";
-import { useSessionStatus } from "@/app/hooks/useSessionStatus";
 import { useUserSession } from "@/app/hooks/useUserSession";
 import type {
   TChatMessage,
@@ -768,7 +768,7 @@ export const GridSessionProvider = ({
     }
   };
 
-  const { connectionStatus, latestUpdate } = useSessionStatus(sessionId);
+  const { connectionStatus, latestUpdate, setSessionId } = useSessionContext();
 
   // WAIT EFFECT == RESPONSE POLLING FOR PENDING REQUEST
   useEffect(() => {
