@@ -195,7 +195,7 @@ export const ChatContainer = ({
     // on page load, set requestId to the last one in the sections
     if (sects.length > 0) {
       const lastSection = sects[sects.length - 1];
-      if (lastSection.requestId) {
+      if (lastSection?.requestId) {
         setRequestId(lastSection.requestId);
         // eslint-disable-next-line no-restricted-globals
         history.pushState(null, "", `#${lastSection.requestId}`);
@@ -296,6 +296,7 @@ export const ChatContainer = ({
       sects?.length === 0,
     [metadata, pending, isLoading, isValidating, sects],
   );
+  console.log("isEmptyChat", isEmptyChat);
 
   return (
     <Paper

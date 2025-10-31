@@ -279,7 +279,7 @@ export const QueryBox = ({
                 fullWidth
                 multiline
                 minRows={1}
-                placeholder={placeholder()}
+                placeholder={placeholder}
                 onKeyDown={handleKeyDown}
                 value={promptVal}
                 onChange={(e) => {

@@ -73,7 +73,7 @@ export interface ChatSessionContextType {
   setActiveRows: React.Dispatch<React.SetStateAction<any[] | undefined>>;
   pending: boolean;
   setPending: (b: boolean) => void;
-  placeholder: () => string;
+  placeholder: string;
   handleClick: (
     inputRef: RefObject<HTMLInputElement>,
     formRef: RefObject<HTMLFormElement>,
@@ -974,14 +974,17 @@ export const GridSessionProvider = ({
     }
   }, [mergedSql]);
 
-  const placeholder = () => {
+  const placeholder = useMemo(() => {
     if (activeColumn?.field === "__add_column__") return `Ask to add...`;
 
     if (activeColumn || activeRows)
       return `${enrichedContext(selectedAction, context)}...`;
 
+    if (!metadata) {
+      return "Ask anything...";
+    }
     return "Describe how to change or refine this query...";
-  };
+  }, [activeColumn, activeRows, context, selectedAction, metadata]);
 
   const handleClick =
     (

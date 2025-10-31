@@ -183,28 +183,26 @@ export const SemanticGridMenu = ({
         }}
       >
         {mode === "edit" && (
-          <MenuItem onClick={onActionClick}>
-            Edit with Semantic Grid AI
-          </MenuItem>
+          <MenuItem onClick={onActionClick}>Edit Query</MenuItem>
         )}
         {mode === "explore" && (
           <MenuItem component={Link} href="/grid">
-            New Semantic Grid session
+            New Query
           </MenuItem>
         )}
         {mode === "editing" && (
           <MenuItem disabled={!hasQuery} onClick={onActionClick}>
-            Save and end session
+            Save Query
           </MenuItem>
         )}
         {mode === "editing" && (
           <MenuItem component={Link} href="/grid">
-            New session
+            New Query
           </MenuItem>
         )}
         {user && history && history.length > 0 && <Divider />}
         {user && history && history.length > 0 && (
-          <MenuItem disabled>Previous sessions</MenuItem>
+          <MenuItem disabled>Previous Queries</MenuItem>
         )}
         {user && history && history.length > 0 && (
           <Accordion
