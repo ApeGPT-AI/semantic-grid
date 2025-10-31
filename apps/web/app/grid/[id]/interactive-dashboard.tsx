@@ -113,12 +113,12 @@ export const InteractiveDashboard = ({
 
   const [, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
-  const { connectionStatus, latestUpdate } = useSessionStatus(id);
+  const { latestUpdate } = useSessionStatus(id || "");
   const pendingRequest = useMemo(
     () =>
       latestUpdate?.status !== "Done" &&
-      !latestUpdate?.error &&
-      !latestUpdate?.status !== "Cancelled",
+      !latestUpdate?.has_error &&
+      latestUpdate?.status !== "Cancelled",
     [latestUpdate],
   );
 
@@ -163,7 +163,7 @@ export const InteractiveDashboard = ({
       Boolean((pendingRequest as any)?.query?.sql),
     [hasData, pendingRequest],
   );
-  console.log("showGrid", showGrid, "hasData", hasData);
+  // console.log("showGrid", showGrid, "hasData", hasData);
 
   useEffect(() => {
     // setLeftWidth(window.innerWidth);

@@ -72,7 +72,6 @@ export const SemanticGridMenu = ({
         .filter((s: any) => !s.tags.includes("hidden") && s.message_count > 0),
     [sessions],
   );
-
   const openMenu = Boolean(anchorEl);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -227,7 +226,7 @@ export const SemanticGridMenu = ({
                 history.length > 0 &&
                 history.slice(0, 10).map((s: any) => (
                   <MenuItem
-                    key={s.id}
+                    key={s.uid}
                     disabled={s.current}
                     component={Link}
                     href={`/grid/${s.uid}`}
@@ -266,7 +265,7 @@ export const SemanticGridMenu = ({
                 history.length > 0 &&
                 history.slice(10).map((s: any) => (
                   <MenuItem
-                    key={s.id}
+                    key={s.uid}
                     disabled={s.current}
                     component={Link}
                     href={`/grid/${s.uid}`}

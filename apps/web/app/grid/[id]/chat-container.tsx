@@ -296,7 +296,7 @@ export const ChatContainer = ({
       sects?.length === 0,
     [metadata, pending, isLoading, isValidating, sects],
   );
-  console.log("isEmptyChat", isEmptyChat);
+  // console.log("isEmptyChat", isEmptyChat);
 
   return (
     <Paper
