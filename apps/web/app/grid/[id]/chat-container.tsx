@@ -304,16 +304,6 @@ export const ChatContainer = ({
       .then(setFollowUps);
   }, []);
 
-  // const followUps = [
-  //  "Show top traders by 24h PnL with their PnL, transaction count, and win rate.",
-  //  "Find tokens first seen on pump.fun within 1h that have no DEX trades. Show name, description, transaction count (sort default), and % price change since first trade",
-  //  "Show top 10 wallets holding most HNT tokens that have only traded once in the last 30 days.",
-  // ];
-
-  useEffect(() => {
-    // console.log("***", sects.slice(-1)[0]);
-  }, [sects]);
-
   useEffect(() => {
     const isInternalScroll = hasData;
     const scrollNode = isInternalScroll ? scrollRef.current : window;

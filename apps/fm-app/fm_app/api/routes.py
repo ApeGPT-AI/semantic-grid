@@ -410,7 +410,7 @@ def build_sorted_paginated_sql(
         )
         SELECT
           t.*,
-          COUNT(*) OVER () AS _inner_count
+          COUNT(*) OVER () AS total_count
         FROM orig_sql AS t 
         {order_clause}
         LIMIT :limit OFFSET :offset;
@@ -1343,7 +1343,6 @@ async def get_query_data(
             # Manual dict conversion (avoid .mappings() which can fail on connection drops)
             columns = result.keys()
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
-            print('rows', rows)
 
             # Extract total_count if present
             # (may not be present for ClickHouse CTE queries)
