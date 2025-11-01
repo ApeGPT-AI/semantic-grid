@@ -769,7 +769,6 @@ export const GridSessionProvider = ({
   };
 
   const { connectionStatus, latestUpdate, setSessionId } = useSessionContext();
-
   // WAIT EFFECT == RESPONSE POLLING FOR PENDING REQUEST
   useEffect(() => {
     if (
@@ -826,60 +825,6 @@ export const GridSessionProvider = ({
           setSects(withErrorResponse({ err: e } as TResponseResult));
         });
     }
-
-    /*
-    if (pendingRequest) {
-      console.log("pendingRequest", pendingRequest);
-      // newPendingMessage(prompt)]);
-      setPending(true);
-      scrollToBottom();
-      // wait for response by polling
-      const { onStatus, waitForDone } = pollForResponse({
-        sessionId: pendingRequest.session_id,
-        seqNum: pendingRequest.sequence_number,
-      });
-      onStatus((status: TResponseResult) => {
-        if (status.status === "Intent") {
-          mutate();
-        }
-        const text = status.response || status.intent || "";
-        setSects(withPendingMessage(status, text));
-      });
-      waitForDone
-        .then(async (resp: TChatMessage) => {
-          // GOT THE RESPONSE
-          if (resp.structuredResponse?.linked_session_id) {
-            // create new linked session
-            console.log(
-              "linked session created",
-              resp.structuredResponse.linked_session_id,
-            );
-            requestAnimationFrame(() => {
-              console.log("redirecting to new session");
-              router.push(
-                `/query/${resp.structuredResponse?.linked_session_id}`,
-              );
-            });
-          } else {
-            setSects(
-              withPendingMessage(
-                resp as unknown as TResponseResult,
-                resp.text || "",
-              ),
-            );
-          }
-        })
-        .then((_) => increaseTrialCount())
-        .then(() => setPrompt(""))
-        .then(() => setPending(false))
-        .then(() => scrollToBottom())
-        .catch((e) => {
-          console.error("error response", e);
-          setPending(false);
-          setSects(withErrorResponse({ err: e } as TResponseResult));
-        });
-    }
-     */
   }, [connectionStatus, latestUpdate]);
 
   useEffect(() => {
@@ -904,70 +849,6 @@ export const GridSessionProvider = ({
         setSects(withNewMessage(request as any, prompt));
         return request;
       });
-      /*
-        .then((req) => {
-          if (scrollRef.current) {
-            scrollToBottom();
-          }
-          return req;
-        })
-        // wait for response by polling
-        // @ts-ignore
-        .then(async ({ session_id, sequence_number }) => {
-          const { onStatus, waitForDone } = pollForResponse({
-            sessionId: session_id,
-            seqNum: sequence_number,
-          });
-          console.log("pollForResponse", session_id, sequence_number);
-          await mutate();
-          onStatus((status) => {
-            if (status.status === "Intent") {
-              mutate();
-            }
-            const text = status.response || status.intent || "";
-            setSects(withPendingMessage(status, text));
-          });
-          waitForDone
-            .then(async (resp: TChatMessage) => {
-              // GOT THE RESPONSE
-              if (resp.structuredResponse?.linked_session_id) {
-                // create new linked session
-                console.log(
-                  "linked session created",
-                  resp.structuredResponse.linked_session_id,
-                );
-                await mutate(); // refresh sessions
-                requestAnimationFrame(() => {
-                  console.log("redirecting to new session");
-                  router.push(
-                    `/query/${resp.structuredResponse?.linked_session_id}`,
-                  );
-                });
-              } else {
-                setSects(
-                  withPendingMessage(
-                    resp as unknown as TResponseResult,
-                    resp.text || "",
-                  ),
-                );
-              }
-            })
-            .then((_) => increaseTrialCount())
-            .then(() => setPrompt(""))
-            .then(() => setPending(false))
-            .then(() => scrollToBottom())
-            .catch((e) => {
-              console.error("error response", e);
-              setPending(false);
-              setSects(withErrorResponse({ err: e } as TResponseResult));
-            });
-        })
-        .catch((e) => {
-          console.error("error response", e);
-          setPending(false);
-          setSects(withErrorResponse({ err: e } as TResponseResult));
-        });
-         */
     }
   }, [prompt]);
 
