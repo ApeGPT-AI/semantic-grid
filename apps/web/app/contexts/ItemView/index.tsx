@@ -12,9 +12,14 @@ import React, {
 type ViewKey = "chart" | "grid" | "sql";
 const VIEW_KEYS: ViewKey[] = ["chart", "grid", "sql"];
 
+type ChartType = "pie" | "line" | "bar";
+const CHART_TYPES: ChartType[] = ["pie", "line", "bar"];
+
 type Ctx = {
   view: ViewKey;
   setView: (next: ViewKey) => void;
+  chartType: ChartType;
+  setChartType: (next: ChartType) => void;
   itemId: string;
 };
 
@@ -38,10 +43,12 @@ export const Index = createContext<Ctx | null>(null);
 export const ItemViewProvider = ({
   itemId,
   defaultView = "chart",
+  defaultChartType = "line",
   children,
 }: {
   itemId: string;
   defaultView?: ViewKey;
+  defaultChartType?: ChartType;
   children: React.ReactNode;
 }) => {
   const router = useRouter();
@@ -53,11 +60,21 @@ export const ItemViewProvider = ({
     return VIEW_KEYS.includes(v as ViewKey) ? (v as ViewKey) : null;
   };
 
+  const readChartTypeLocal = (): ChartType | null => {
+    if (typeof window === "undefined") return null;
+    const ct = window.localStorage.getItem(`chartType:${itemId}`);
+    return CHART_TYPES.includes(ct as ChartType) ? (ct as ChartType) : null;
+  };
+
   const hash = readHash();
 
   // Resolve initial state (hash > localStorage > default)
   const initial = (readHash() ?? readLocal() ?? defaultView) as ViewKey;
   const [view, setViewState] = useState<ViewKey>(initial);
+
+  // Chart type state (localStorage > default)
+  const initialChartType = (readChartTypeLocal() ?? defaultChartType) as ChartType;
+  const [chartType, setChartTypeState] = useState<ChartType>(initialChartType);
 
   // Ensure URL reflects the resolved initial view on mount
   useEffect(() => {
@@ -102,7 +119,19 @@ export const ItemViewProvider = ({
     }
   };
 
-  const value = useMemo(() => ({ view, setView, itemId }), [view, itemId]);
+  const setChartType = (next: ChartType) => {
+    if (!CHART_TYPES.includes(next)) return;
+    setChartTypeState(next);
+    // Persist chart type per item
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(`chartType:${itemId}`, next);
+    }
+  };
+
+  const value = useMemo(
+    () => ({ view, setView, chartType, setChartType, itemId }),
+    [view, chartType, itemId]
+  );
 
   return <Index.Provider value={value}>{children}</Index.Provider>;
 };

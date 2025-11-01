@@ -776,6 +776,7 @@ export const GridSessionProvider = ({
       latestUpdate?.status &&
       latestUpdate?.status !== "Done" &&
       latestUpdate?.status !== "Error" &&
+      latestUpdate?.status !== "Canceled" &&
       !pending
     ) {
       setPending(true);
@@ -803,7 +804,11 @@ export const GridSessionProvider = ({
       );
     }
 
-    if (latestUpdate?.status === "Done" || latestUpdate?.status === "Error") {
+    if (
+      latestUpdate?.status === "Done" ||
+      latestUpdate?.status === "Error" ||
+      latestUpdate?.status === "Canceled"
+    ) {
       fetch(
         `/api/apegpt/message?sessionId=${sessionId}&seqNum=${latestUpdate.sequence_number}`,
       )

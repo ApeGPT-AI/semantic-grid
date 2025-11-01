@@ -94,6 +94,7 @@ export const DashboardItemMenu = ({
       case "view-table":
       case "view-chart-pie":
       case "view-chart-line":
+      case "view-chart-bar":
         await editDefaultItemView({
           itemId: id,
           itemType: itemType as any,
@@ -134,6 +135,7 @@ export const DashboardItemMenu = ({
           { label: "Show as Table", key: "view-table" },
           { label: "Show as Pie Chart", key: "view-chart-pie" },
           { label: "Show as Line Chart", key: "view-chart-line" },
+          { label: "Show as Bar Chart", key: "view-chart-bar" },
           { label: "sep1", isSeparator: true },
           { label: "Refresh", key: "refresh", icon: <Cached /> },
           { label: "Refreshed", key: "refreshed", disabled: true },

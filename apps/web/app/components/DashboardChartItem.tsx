@@ -1,7 +1,7 @@
 "use client";
 
 import { alpha, Box, CircularProgress } from "@mui/material";
-import { ChartsTooltip, LineChart, PieChart } from "@mui/x-charts";
+import { BarChart, ChartsTooltip, LineChart, PieChart } from "@mui/x-charts";
 import { type GridColDef } from "@mui/x-data-grid";
 import React, { useMemo } from "react";
 
@@ -65,7 +65,7 @@ export const DashboardChartItem = ({
     () => [
       {
         dataKey: gridColumns[0]?.field?.replace("col_", ""),
-        scaleType: "time",
+        scaleType: chartType === "bar" ? "band" : "time",
         valueFormatter: (value: Date) => value.toLocaleDateString(),
         // valueFormatter: (value: number) => new Date(value).toString(),
       },
@@ -111,6 +111,36 @@ export const DashboardChartItem = ({
         >
           <ChartsTooltip /> {/* enables tooltips for all series at hovered X */}
         </LineChart>
+        {(isLoading || isRefreshing) && (
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            bgcolor={(theme) => alpha(theme.palette.background.default, 0.6)}
+          >
+            <CircularProgress />
+          </Box>
+        )}
+      </>
+    );
+  }
+  if (chartType === "bar") {
+    return (
+      <>
+        <BarChart
+          xAxis={xAxis as any}
+          series={lineChartSeries}
+          dataset={normalizeDataSet(data?.rows || [], gridColumns)}
+          width={(minHeight * 4) / 3}
+          height={minHeight}
+        >
+          <ChartsTooltip />
+        </BarChart>
         {(isLoading || isRefreshing) && (
           <Box
             position="absolute"

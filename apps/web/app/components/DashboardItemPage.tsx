@@ -8,10 +8,10 @@ import {
   Paper,
   Typography,
 } from "@mui/material";
-import { LineChart, PieChart } from "@mui/x-charts";
+import { BarChart, ChartsTooltip, LineChart, PieChart } from "@mui/x-charts";
 import type { GridColDef } from "@mui/x-data-grid";
 import { DataGridPro as DataGrid } from "@mui/x-data-grid-pro";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 
 import HighlightedSQL from "@/app/components/SqlView";
 import { useItemViewContext } from "@/app/contexts/ItemView";
@@ -49,8 +49,6 @@ export const DashboardItemPage = ({
     offset: 0,
   });
 
-  const { view } = useItemViewContext();
-
   const gridColumns: GridColDef[] = useMemo(() => {
     if (!query) return [];
 
@@ -63,11 +61,22 @@ export const DashboardItemPage = ({
     if (chartType) return chartType;
     if (!chartType) {
       // guess based on gridColumns, i.e. if type of the first column is date, then line chart
-      if (timeKey(gridColumns[0]?.type)) return "line";
+      if (timeKey(gridColumns[0]?.type)) return "bar";
       return "pie"; // default
     }
     return null;
   }, [chartType, gridColumns]);
+
+  const {
+    view,
+    setView,
+    chartType: selectedChartType,
+    setChartType,
+  } = useItemViewContext();
+
+  useEffect(() => {
+    setChartType(guessedChartType as any);
+  }, []);
 
   const pieSeries = useMemo(
     () => buildPieChartSeries(data?.rows || [], gridColumns),
@@ -89,12 +98,12 @@ export const DashboardItemPage = ({
     () => [
       {
         dataKey: gridColumns[0]?.field?.replace("col_", ""),
-        scaleType: "time",
+        scaleType: selectedChartType === "bar" ? "band" : "time",
         // valueFormatter: (value: Date) => value.toLocaleDateString(),
         valueFormatter: (value: number) => new Date(value).toLocaleDateString(),
       },
     ],
-    [gridColumns],
+    [gridColumns, selectedChartType],
   );
 
   const dataset = useMemo(
@@ -122,60 +131,88 @@ export const DashboardItemPage = ({
           </Typography>
 
           <Box>
-            {view === "chart" &&
-              (chartType === "line" || guessedChartType === "line") && (
-                <>
-                  <LineChart
-                    yAxis={[{ width: 100 }]}
-                    style={{ height: "80vh", width: "100%" }}
-                    xAxis={xAxis as any} // e.g. 'col_0'
-                    series={lineChartSeries}
-                    dataset={dataset}
+            {view === "chart" && selectedChartType === "line" && (
+              <>
+                <LineChart
+                  yAxis={[{ width: 100 }]}
+                  style={{ height: "80vh", width: "100%" }}
+                  xAxis={xAxis as any} // e.g. 'col_0'
+                  series={lineChartSeries}
+                  dataset={dataset}
+                >
+                  <ChartsTooltip />
+                </LineChart>
+                {isLoading && (
+                  <Box
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    bgcolor={(theme) =>
+                      alpha(theme.palette.background.default, 0.6)
+                    }
                   >
-                    {/* enables tooltips for all series at hovered X */}
-                  </LineChart>
-                  {isLoading && (
-                    <Box
-                      position="absolute"
-                      top={0}
-                      left={0}
-                      right={0}
-                      bottom={0}
-                      display="flex"
-                      justifyContent="center"
-                      alignItems="center"
-                      bgcolor={(theme) =>
-                        alpha(theme.palette.background.default, 0.6)
-                      }
-                    >
-                      <CircularProgress />
-                    </Box>
-                  )}
-                </>
-              )}
-            {view === "chart" &&
-              (chartType === "pie" || guessedChartType === "pie") && (
-                <>
-                  <PieChart series={pieSeries} width={200} height={200} />
-                  {isLoading && (
-                    <Box
-                      position="absolute"
-                      top={0}
-                      left={0}
-                      right={0}
-                      bottom={0}
-                      display="flex"
-                      justifyContent="center"
-                      alignItems="center"
-                      bgcolor={(theme) =>
-                        alpha(theme.palette.background.default, 0.6)
-                      }
-                    >
-                      <CircularProgress />
-                    </Box>
-                  )}
-                </>
-              )}
+                    <CircularProgress />
+                  </Box>
+                )}
+              </>
+            )}
+            {view === "chart" && selectedChartType === "bar" && (
+              <>
+                <BarChart
+                  yAxis={[{ width: 100 }]}
+                  style={{ height: "80vh", width: "100%" }}
+                  xAxis={xAxis as any}
+                  series={lineChartSeries}
+                  dataset={dataset}
+                >
+                  <ChartsTooltip />
+                </BarChart>
+                {isLoading && (
+                  <Box
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    bgcolor={(theme) =>
+                      alpha(theme.palette.background.default, 0.6)
+                    }
+                  >
+                    <CircularProgress />
+                  </Box>
+                )}
+              </>
+            )}
+            {view === "chart" && selectedChartType === "pie" && (
+              <>
+                <PieChart series={pieSeries} width={200} height={200} />
+                {isLoading && (
+                  <Box
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    bgcolor={(theme) =>
+                      alpha(theme.palette.background.default, 0.6)
+                    }
+                  >
+                    <CircularProgress />
+                  </Box>
+                )}
+              </>
+            )}
             {view === "grid" && (
               <DataGrid
                 density="compact"

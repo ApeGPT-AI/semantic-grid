@@ -10,7 +10,7 @@ import {
   Tab,
   Tabs,
 } from "@mui/material";
-import { LineChart, PieChart } from "@mui/x-charts";
+import { BarChart, LineChart, PieChart } from "@mui/x-charts";
 import type { GridColDef } from "@mui/x-data-grid";
 import { useRouter } from "next/navigation";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -109,7 +109,6 @@ export const InteractiveDashboard = ({
   const prevY = useRef<number | null>(null);
   const prevX = useRef<number | null>(null);
   const maxLeftWidthRef = useRef<number | null>(null);
-  const { view } = useItemViewContext();
 
   const [, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
@@ -349,6 +348,14 @@ export const InteractiveDashboard = ({
     return "pie"; // default
   }, [gridColumns]);
 
+  const { view, setChartType, chartType } = useItemViewContext();
+
+  useEffect(() => {
+    // if (guessedChartType) {
+    setChartType(guessedChartType);
+    // }
+  }, []);
+
   const pieSeries = useMemo(
     () => buildPieChartSeries(data?.rows || [], gridColumns),
     [data?.rows, gridColumns],
@@ -369,12 +376,12 @@ export const InteractiveDashboard = ({
     () => [
       {
         dataKey: gridColumns[0]?.field?.replace("col_", ""),
-        scaleType: "time",
+        scaleType: chartType === "bar" ? "band" : "time",
         // valueFormatter: (value: Date) => value.toLocaleDateString(),
         valueFormatter: (value: number) => new Date(value).toLocaleDateString(),
       },
     ],
-    [gridColumns],
+    [gridColumns, chartType],
   );
 
   const dataset = useMemo(
@@ -473,7 +480,7 @@ export const InteractiveDashboard = ({
                     }}
                     ref={gridRef}
                   >
-                    {view === "chart" && guessedChartType === "line" && (
+                    {view === "chart" && chartType === "line" && (
                       <>
                         <LineChart
                           yAxis={[{ width: 100 }]}
@@ -503,7 +510,37 @@ export const InteractiveDashboard = ({
                         )}
                       </>
                     )}
-                    {view === "chart" && guessedChartType === "pie" && (
+                    {view === "chart" && chartType === "bar" && (
+                      <>
+                        <BarChart
+                          yAxis={[{ width: 100 }]}
+                          style={{ height: "80vh", width: "100%" }}
+                          xAxis={xAxis as any} // e.g. 'col_0'
+                          series={lineChartSeries}
+                          dataset={dataset}
+                        >
+                          {/* enables tooltips for all series at hovered X */}
+                        </BarChart>
+                        {isLoading && (
+                          <Box
+                            position="absolute"
+                            top={0}
+                            left={0}
+                            right={0}
+                            bottom={0}
+                            display="flex"
+                            justifyContent="center"
+                            alignItems="center"
+                            bgcolor={(theme) =>
+                              alpha(theme.palette.background.default, 0.6)
+                            }
+                          >
+                            <CircularProgress />
+                          </Box>
+                        )}
+                      </>
+                    )}
+                    {view === "chart" && chartType === "pie" && (
                       <>
                         <PieChart series={pieSeries} width={200} height={200} />
                         {isLoading && (
