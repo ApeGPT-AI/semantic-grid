@@ -51,19 +51,25 @@ Copy template content into your overlay and modify as needed for client-specific
 
 ## Available Templates
 
-### dbmeta_app/sql_dialects/
+### dbmeta_app/resources/
 
 SQL dialect-specific instructions for LLM-driven query generation:
 
-- **clickhouse.yaml**: Instructions for ClickHouse SQL dialect
+- **sql_dialect.yaml**: Default SQL dialect (ClickHouse)
+  - Used automatically by all clients unless overridden
   - Unsupported features: FULL OUTER JOIN, RIGHT JOIN, LAG(), LEAD()
   - Array handling with arrayMap(), arrayJoin(), groupArray()
   - Correlated subquery limitations
   
-- **trino.yaml**: Instructions for Trino SQL dialect
+- **sql_dialect.clickhouse.yaml**: ClickHouse SQL dialect (reference)
+  - Same as default sql_dialect.yaml
+  - Keep for documentation and version control
+  
+- **sql_dialect.trino.yaml**: Trino SQL dialect (alternative)
   - Full support for standard SQL features
   - Array handling with transform(), unnest(), array_agg()
   - Window functions and CTEs
+  - To use: Copy content to client overlay as `sql_dialect.yaml`
 
 ## Adding New Templates
 
@@ -72,13 +78,52 @@ SQL dialect-specific instructions for LLM-driven query generation:
 3. Document the template's purpose in this README
 4. Templates should be generic and reusable across clients
 
+## Usage Examples
+
+### Example 1: Using the Default Template (ClickHouse)
+
+If your client uses ClickHouse (most common), you don't need any overlay:
+- The template at `templates/dbmeta_app/resources/sql_dialect.yaml` provides ClickHouse by default
+- Simply delete or don't create a client overlay for `sql_dialect.yaml`
+- The template is automatically merged via the overlay system
+
+### Example 2: Switching to Trino
+
+To use Trino instead of ClickHouse:
+
+```bash
+# Copy the Trino template to your client overlay
+cp packages/templates/dbmeta_app/resources/sql_dialect.trino.yaml \
+   packages/client-configs/myclient/prod/dbmeta_app/overlays/resources/sql_dialect.yaml
+```
+
+Or manually copy the content and customize as needed.
+
+### Example 3: Adding Client-Specific Rules
+
+To extend the default ClickHouse template with client-specific rules:
+
+```yaml
+# In client-configs/myclient/prod/dbmeta_app/overlays/resources/sql_dialect.yaml
+version: 1.0.0
+description: SQL dialect with client-specific additions
+strategy: override
+profiles:
+  wh_v2:
+    # Copy all instructions from template, then add:
+    - |
+      Client-specific rule: Do not query tables older than 90 days
+      without explicit date filters.
+```
+
 ## Best Practices
 
 - **Versioning**: Templates are unversioned (unlike system packs). Breaking changes should be rare.
-- **Naming**: Use descriptive names that indicate purpose (e.g., `sql_dialects/postgres.yaml`)
+- **Naming**: Use descriptive names that indicate purpose (e.g., `sql_dialect.trino.yaml`)
 - **Documentation**: Include comments in templates explaining their purpose
 - **Scope**: Keep templates focused on a single concern (SQL dialect, policy pattern, etc.)
 - **Client Specifics**: If customization is needed, copy to client overlay rather than modifying template
+- **Default Behavior**: If most clients use the same config, make it the default template
 
 ## Relationship to Other Directories
 
