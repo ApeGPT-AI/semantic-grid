@@ -373,7 +373,7 @@ def assemble_tree(
     - For *.json/*.yaml where both base and overlay are mappings, apply JSON Merge Patch
     Returns dict: relpath -> bytes
     """
-    print('tree', system_root, overlays)
+    print("tree", system_root, overlays)
     base_files = _collect_files(system_root)
     tree: Dict[str, bytes] = {}
     for rel, ap in base_files.items():
@@ -417,8 +417,9 @@ def assemble_effective_tree(
     """
     base = REPO_ROOT / "packs" / "system-pack" / <latest-version>/
     overlays (in order; later wins):
-      1) REPO_ROOT / "client-configs" / <client> / "common" / "db-meta" / "overlays"
-      2) REPO_ROOT / "client-configs" / <client> / <env>     / "db-meta" / "overlays"
+      1) REPO_ROOT / "templates" / "dbmeta_app"
+      2) REPO_ROOT / "client-configs" / <client> / "common" / "db-meta" / "overlays"
+      3) REPO_ROOT / "client-configs" / <client> / <env>     / "db-meta" / "overlays"
     Returns: { relative_path: bytes }
     """
     packs_root = REPO_ROOT / "resources" / "dbmeta_app" / "system-pack"
@@ -432,6 +433,12 @@ def assemble_effective_tree(
     base_dir = sorted(candidates, key=lambda p: _semver_key(p.name))[-1]
 
     overlay_dirs: List[pathlib.Path] = []
+
+    # Add templates directory first (lowest priority overlay)
+    templates_dir = REPO_ROOT / "templates" / "dbmeta_app"
+    if templates_dir.exists():
+        overlay_dirs.append(templates_dir)
+
     if client:
         common_ov = (
             REPO_ROOT / "client-configs" / client / "common" / "dbmeta_app" / "overlays"
