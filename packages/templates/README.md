@@ -16,10 +16,10 @@ templates/
 ├── fm_app/              # Templates for Flow Manager
 │   └── (future templates)
 └── dbmeta_app/          # Templates for DB-Meta
-    └── sql_dialects/    # SQL dialect-specific instructions
-        ├── clickhouse.yaml
-        ├── trino.yaml
-        └── (other dialects)
+    └── resources/       # SQL dialect-specific instructions
+        ├── sql_dialect.yaml              # Default (ClickHouse)
+        ├── sql_dialect.clickhouse.yaml   # ClickHouse reference
+        └── sql_dialect.trino.yaml        # Trino alternative
 ```
 
 ## How Templates Work
@@ -34,20 +34,23 @@ Templates are automatically added to the Jinja2 include search path by `PromptAs
 
 ### Using Templates in Client Overlays
 
-**Option 1: Jinja Include in Markdown**
-```markdown
-{% include "sql_dialects/clickhouse.yaml" %}
-```
+**Option 1: Use Default (No Action Needed)**
+The default template `resources/sql_dialect.yaml` is automatically merged via the overlay system.
+Simply don't create a client overlay file, and the template is used.
 
-**Option 2: Reference in YAML (via merge)**
-```yaml
-# In client overlay
-profiles:
-  wh_v2: {% include "sql_dialects/trino.yaml" %}
-```
-
-**Option 3: Copy and Customize**
+**Option 2: Copy and Customize**
 Copy template content into your overlay and modify as needed for client-specific requirements.
+```bash
+# Example: Switch to Trino
+cp packages/templates/dbmeta_app/resources/sql_dialect.trino.yaml \
+   packages/client-configs/myclient/prod/dbmeta_app/overlays/resources/sql_dialect.yaml
+```
+
+**Option 3: Jinja Include (for Markdown prompts)**
+For markdown-based prompts, you can include templates:
+```markdown
+{% include "resources/sql_dialect.clickhouse.yaml" %}
+```
 
 ## Available Templates
 
