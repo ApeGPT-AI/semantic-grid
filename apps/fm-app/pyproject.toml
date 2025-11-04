@@ -106,6 +106,7 @@ dependencies = [
     "starlette>=0.41.3",
     "structlog==24.4.0",
     "tqdm==4.67.1",
+    "trino[sqlalchemy]>=0.335.0",
     "typer==0.15.2",
     "typing-extensions==4.12.2",
     "tzdata==2024.2",
