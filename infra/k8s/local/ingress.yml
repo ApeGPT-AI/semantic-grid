@@ -1,0 +1,16 @@
+---
+# For OrbStack, we'll use a simple LoadBalancer service
+# OrbStack automatically makes LoadBalancer services accessible at <service-name>.orb.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: local
+spec:
+  type: LoadBalancer
+  selector:
+    app: fm-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

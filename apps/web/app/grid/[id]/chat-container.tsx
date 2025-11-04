@@ -194,14 +194,17 @@ export const ChatContainer = ({
   useEffect(() => {
     // on page load, set requestId to the last one in the sections
     if (sects.length > 0) {
-      const lastSection = sects[sects.length - 1];
+      // find last section with metadata
+      const lastSection = sects.toReversed().find((s) => Boolean(s.query));
+      console.log("last", lastSection, sects);
+      // const lastSection = sects[sects.length - 1];
       if (lastSection?.requestId) {
         setRequestId(lastSection.requestId);
         // eslint-disable-next-line no-restricted-globals
         history.pushState(null, "", `#${lastSection.requestId}`);
       }
     }
-  }, [sects]);
+  }, [JSON.stringify(sects)]);
 
   const handleSectionClick = (section: TChatSection) => {
     console.log("section selected", requestId, section);
@@ -211,7 +214,7 @@ export const ChatContainer = ({
       : null;
     if (el) {
       if (requestId !== section.requestId) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
 
         if (section.query) {
           // Update URL fragment without reloading

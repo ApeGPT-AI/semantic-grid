@@ -65,6 +65,11 @@ LOGGING_CONFIG_NORMAL = {
             "level": "WARNING",
             "propagate": False,
         },
+        "amqp": {
+            "handlers": ["default"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
 LOGGING_CONFIG_JSON = {
@@ -91,6 +96,11 @@ LOGGING_CONFIG_JSON = {
             "propagate": False,
         },
         "celery.worker": {
+            "handlers": ["default"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "amqp": {
             "handlers": ["default"],
             "level": "WARNING",
             "propagate": False,

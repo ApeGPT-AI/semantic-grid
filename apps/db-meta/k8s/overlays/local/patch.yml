@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dbmeta-app
-  namespace: prod
+  namespace: local
 spec:
   replicas: 1
   template:
@@ -10,6 +10,8 @@ spec:
       labels:
         app: dbmeta-app
     spec:
+      imagePullSecrets: []
       containers:
         - name: dbmeta-app
-          image: 'dbmeta:3.20'
+          image: "dbmeta:local"
+          imagePullPolicy: Never

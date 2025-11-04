@@ -2,13 +2,15 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: dbmeta-etl
-  namespace: prod
+  namespace: local
 spec:
   template:
     metadata:
       labels:
         app: dbmeta-etl
     spec:
+      imagePullSecrets: []
       containers:
         - name: dbmeta-etl
-          image: 'dbmeta:3.20'
+          image: "dbmeta:local"
+          imagePullPolicy: Never

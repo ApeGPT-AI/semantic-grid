@@ -591,6 +591,7 @@ class PromptAssembler:
         mcp_lineage = []
         frozen_ctx = _freeze(copy.deepcopy(req_ctx))
         for need in self._slot_mcp_requirements(slot):
+            # Debug print removed - caused LogRecord 'name' conflict
             name = need["name"]
             prov = self.async_mcp_registry.get(name)
             if not prov:

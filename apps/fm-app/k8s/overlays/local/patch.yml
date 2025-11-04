@@ -2,16 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fm-app
-  namespace: prod
+  namespace: local
 spec:
   replicas: 1
   template:
-    metadata:
-      labels:
-        app: fm-app
     spec:
       containers:
         - name: fm-app
-          image: 'fm_app:5.3'
+          image: "fm_app:local"
+          imagePullPolicy: Never
         - name: fm-app-celery
-          image: 'fm_app:5.3'
+          image: "fm_app:local"
+          imagePullPolicy: Never

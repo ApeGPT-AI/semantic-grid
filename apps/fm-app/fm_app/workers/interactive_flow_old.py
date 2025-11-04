@@ -1,3 +1,9 @@
+"""
+DEPRECATED: This file has been refactored into interactive_flow/ submodule.
+Keep this file for reference during migration period.
+Use: from fm_app.workers.interactive_flow import interactive_flow
+"""
+
 import itertools
 import pathlib
 import re
@@ -189,7 +195,9 @@ async def interactive_flow(
 
         try:
             llm_response = ai_model.get_structured(
-                messages, QueryMetadata, "gpt-4.1-mini-2025-04-14"
+                messages,
+                QueryMetadata,
+                "gpt-4.1-mini-2025-04-14",
                 # "gpt-4.1-2025-04-14"
             )
 
@@ -202,8 +210,9 @@ async def interactive_flow(
             )
             req.status = RequestStatus.error
             req.err = str(e)
-            await update_request_status(RequestStatus.error, req.err, db,
-                                        req.request_id)
+            await update_request_status(
+                RequestStatus.error, req.err, db, req.request_id
+            )
             return req
 
         print(">>> POST MANUAL QUERY", stopwatch.lap())
@@ -312,9 +321,7 @@ async def interactive_flow(
             for request in requests_for_session:
                 if request.query is not None:
                     parent_id = (
-                        request.query.query_id
-                        if request.query.query_id
-                        else None
+                        request.query.query_id if request.query.query_id else None
                     )
                     break
             new_query = CreateQueryModel(
@@ -370,9 +377,9 @@ async def interactive_flow(
 
         # Capabilities coming from MCPs (db-meta/db-ref)
         # db_meta_caps = {
-            # "sql_dialect": "clickhouse",
-            # "cost_tier": "standard",
-            # "max_result_rows": 5000,
+        # "sql_dialect": "clickhouse",
+        # "cost_tier": "standard",
+        # "max_result_rows": 5000,
         # }
         mcp_ctx = {
             "req": McpServerRequest(
@@ -413,7 +420,9 @@ async def interactive_flow(
 
         try:
             llm_response = ai_model.get_structured(
-                messages, IntentAnalysis, "gpt-4.1-mini-2025-04-14" # "gpt-4.1-2025-04-14"
+                messages,
+                IntentAnalysis,
+                "gpt-4.1-mini-2025-04-14",  # "gpt-4.1-2025-04-14"
             )
 
         except Exception as e:
@@ -425,8 +434,9 @@ async def interactive_flow(
             )
             req.status = RequestStatus.error
             req.err = str(e)
-            await update_request_status(RequestStatus.error, req.err, db,
-                                        req.request_id)
+            await update_request_status(
+                RequestStatus.error, req.err, db, req.request_id
+            )
             return req
 
         print(">>> POST LINKED QUERY", stopwatch.lap())
@@ -442,11 +452,11 @@ async def interactive_flow(
         # copy dict from request_session.metadata
         new_metadata_dict = {
             "id": str(uuid.uuid4()),
-            "summary":  llm_response.intent,
+            "summary": llm_response.intent,
             "description": llm_response.intent,
             "sql": req.query.sql,
             # for columns, we need to convert list[Column] to list[dict]
-            "columns": [c.model_dump() for c in req.query.columns] ,
+            "columns": [c.model_dump() for c in req.query.columns],
             "row_count": req.query.row_count,
         }
 
@@ -478,7 +488,6 @@ async def interactive_flow(
         print(">>> DONE LINKED QUERY", stopwatch.lap())
 
         return req
-
 
     else:
         ### QUERY PLANNER / INTENT ###
@@ -555,7 +564,9 @@ async def interactive_flow(
             )
             req.status = RequestStatus.error
             req.err = str(e)
-            await update_request_status(RequestStatus.error, req.err, db, req.request_id)
+            await update_request_status(
+                RequestStatus.error, req.err, db, req.request_id
+            )
             return req
 
         print(">>> POST INTENT", stopwatch.lap())
@@ -583,42 +594,11 @@ async def interactive_flow(
                 db=db,
             )
 
-
-    ### LINKED SESSION QUERY ###
-    # if (
-    #    req.request_type == InteractiveRequestType.linked_session
-    # ):
-    #
-    #    await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
-    #
-    #    # create new session
-    #    linked_session = CreateSessionModel(
-    #        name="New linked session",
-    #        tags="",
-    #        parent=req.session_id,
-    #        refs=req.refs,
-    #    )
-    #    session_response = await add_new_session(
-    #        session=linked_session, user_owner=req.user, db=db
-    #    )
-    #
-    #    await update_request_status(RequestStatus.done, None, db, req.request_id)
-    #    req.structured_response = StructuredResponse(
-    #        intent=llm_response.intent,
-    #        intro=llm_response.response,
-    #        sql=request_session.metadata.get("sql"),
-    #        metadata=request_session.metadata,
-    #        refs=req.refs,
-    #        linked_session_id=session_response.session_id,
-    #    )
-    #    req.status = RequestStatus.done
-    #    req.response = llm_response.response
-    #    return req
-
     ### INTERACTIVE QUERY OR LINKED SESSION ###
-    if (llm_response.request_type == InteractiveRequestType.linked_session
-        or llm_response.request_type == InteractiveRequestType.interactive_query):
-
+    if (
+        llm_response.request_type == InteractiveRequestType.linked_session
+        or llm_response.request_type == InteractiveRequestType.interactive_query
+    ):
         history = await get_history(db, req.session_id, include_responses=False)
 
         interactive_query_vars = {
@@ -677,7 +657,6 @@ async def interactive_flow(
         ### do at most 3 attempts to generate valid SQL for the request
         attempt = 1
         while attempt <= 3:
-
             await update_request_status(RequestStatus.sql, None, db, req.request_id)
             logger.info(
                 "Prepared ai_request",
@@ -835,8 +814,8 @@ async def interactive_flow(
                         {
                             "role": "system",
                             "content": f"""
-                                We have got DB exception: {error_message}\n. 
-                                Please regenerate SQL to fix the issue. 
+                                We have got DB exception: {error_message}\n.
+                                Please regenerate SQL to fix the issue.
                                 Remember instructions from original prompt!.
                             """,
                         }
@@ -888,9 +867,7 @@ async def interactive_flow(
                 for request in requests_for_session:
                     if request.query is not None:
                         parent_id = (
-                            request.query.query_id
-                            if request.query.query_id
-                            else None
+                            request.query.query_id if request.query.query_id else None
                         )
                         break
                 new_query = CreateQueryModel(
@@ -968,7 +945,6 @@ async def interactive_flow(
 
             print(">>> DONE INTERACTIVE QUERY", stopwatch.lap())
 
-
             return req
 
         # if we reach here, it means we exhausted all attempts to generate valid SQL
@@ -989,7 +965,6 @@ async def interactive_flow(
 
     ### DATA ANALYSIS ###
     elif llm_response.request_type == InteractiveRequestType.data_analysis:
-
         data_analysis_vars = {
             "client_id": settings.client_id,
             "intent_hint": intent_hint,

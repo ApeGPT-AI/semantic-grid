@@ -2,17 +2,24 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fm-app-cfg
-  namespace: prod
+  namespace: local
   labels:
     app: fm-app
 data:
-  DATABASE_WH_SERVER: 'host.docker.internal'
-  DATABASE_WH_SERVER_NEW: 'host.docker.internal'
-  DATABASE_WH_SERVER_V2: 'host.docker.internal'
-  DATABASE_WH_PARAMS: '?max_execution_time=120'
-  DATABASE_WH_PARAMS_NEW: '?max_execution_time=120'
-  DATABASE_WH_PARAMS_V2: '?max_execution_time=120'
-  DATABASE_SERVER: 'postgres.postgres'
-  LOG_LEVEL: 'INFO'
-  GOOGLE_CRED_FILE: '/app/sa/bustling-bot-438222-t8-57c598421d12.json'
-  GUEST_AUTH_HOST: 'http://host.docker.internal:3000'
+  DATABASE_WH_SERVER: "192.168.28.176"
+  DATABASE_WH_SERVER_NEW: "192.168.28.176"
+  DATABASE_WH_SERVER_V2: "rafiki.apegpt.ai"
+  DATABASE_WH_PORT: "9000"
+  DATABASE_WH_PORT_NEW: "9000"
+  DATABASE_WH_PORT_V2: "9440"
+  DATABASE_WH_PARAMS: "?max_execution_time=120"
+  DATABASE_WH_PARAMS_NEW: "?max_execution_time=120"
+  DATABASE_WH_PARAMS_V2: "?max_execution_time=120&secure=true&verify=false"
+  DATABASE_SERVER: "postgres.local"
+  DBMETA: "http://dbmeta-svc.local:8080/"
+  VECTOR_DB_HOST: "milvus.local"
+  BROKER_URL: "amqp://admin:local_rabbitmq_password_123@rabbitmq.local:5672//"
+  WRK_BROKER_CONNECTION: "amqp://admin:local_rabbitmq_password_123@rabbitmq.local:5672//"
+  LOG_LEVEL: "INFO"
+  GOOGLE_CRED_FILE: ""
+  GUEST_AUTH_HOST: "http://host.docker.internal:3000"

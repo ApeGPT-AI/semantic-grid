@@ -12,75 +12,96 @@ slots:
   planner:
     # our 'intent' step
     required: false
-    inputs: [
-      client_id, intent_hint, query_metadata, parent_query_metadata, parent_session_id, selected_row_data,
-      selected_column_data ]
-    outputs: [ intent_analysis ]
+    inputs:
+      [
+        client_id,
+        intent_hint,
+        query_metadata,
+        parent_query_metadata,
+        parent_session_id,
+        selected_row_data,
+        selected_column_data,
+      ]
+    outputs: [intent_analysis]
 
   linked_query:
     # start of a session from a query; LLM job is to summarize the query for user
     required: false
-    inputs: [
-      client_id, intent_hint, query_metadata ]
-    outputs: [ query_metadata ]
+    inputs: [client_id, intent_hint, query_metadata]
+    outputs: [query_metadata]
 
   manual_query:
     # start of a session from a SQL; LLM job is to create query metadata and descriptions from SQL
     required: false
-    inputs: [
-      client_id, request ]
-    outputs: [ query_metadata ]
+    inputs: [client_id, request]
+    outputs: [query_metadata]
 
   linked_session:
     # no LLM involvement
     required: false
-    inputs: [ ]
-    outputs: [ ]
+    inputs: []
+    outputs: []
 
   interactive_query:
     # iterative query refinement, with retries
     required: false
     inputs: [
-      client_id, intent_hint, query_metadata, parent_query_metadata, parent_session_id, selected_row_data,
-      selected_column_data, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ query_metadata ]
+        client_id,
+        intent_hint,
+        query_metadata,
+        parent_query_metadata,
+        parent_session_id,
+        selected_row_data,
+        selected_column_data,
+        db_meta_prompt_items,
+        # db_ref_prompt_items,
+      ]
+    outputs: [query_metadata]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   data_analysis:
     required: false
     inputs: [
-      client_id, intent_hint, query_metadata, parent_query_metadata, parent_session_id, selected_row_data,
-      selected_column_data, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ response ]
+        client_id,
+        intent_hint,
+        query_metadata,
+        parent_query_metadata,
+        parent_session_id,
+        selected_row_data,
+        selected_column_data,
+        db_meta_prompt_items,
+        # db_ref_prompt_items,
+      ]
+    outputs: [response]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   general_chat:
     required: false
-    inputs: [ ]
-    outputs: [ response ]
+    inputs: []
+    outputs: [response]
 
   disambiguation:
     required: false
-    inputs: [ ]
-    outputs: [ response ]
+    inputs: []
+    outputs: [response]
 
   ##
   ## Multistep Flow Slots
@@ -88,64 +109,64 @@ slots:
 
   multistep_intent:
     required: true
-    inputs: [ client_id, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ intent ]
+    inputs: [client_id, db_meta_prompt_items, db_ref_prompt_items]
+    outputs: [intent]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   multistep_request:
     required: true
-    inputs: [ client_id, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ query ]
+    inputs: [client_id, db_meta_prompt_items, db_ref_prompt_items]
+    outputs: [query]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   multistep_response:
     required: true
-    inputs: [ client_id, db_ref_prompt_items, response_data ]
-    outputs: [ response ]
+    inputs: [client_id, db_ref_prompt_items, response_data]
+    outputs: [response]
     requires:
       mcp:
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   multistep_response_plain:
     required: true
-    inputs: [ client_id, db_ref_prompt_items, response_data ]
-    outputs: [ response ]
+    inputs: [client_id, db_ref_prompt_items, response_data]
+    outputs: [response]
     requires:
       mcp:
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   multistep_chart:
     required: true
-    inputs: [ client_id, db_ref_prompt_items, chart_data ]
-    outputs: [ chart ]
+    inputs: [client_id, db_ref_prompt_items, chart_data]
+    outputs: [chart]
     requires:
       mcp:
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
@@ -155,23 +176,23 @@ slots:
 
   legacy_simple_request:
     required: true
-    inputs: [ client_id, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ query ]
+    inputs: [client_id, db_meta_prompt_items, db_ref_prompt_items]
+    outputs: [query]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
 
   legacy_simple_response:
     required: true
-    inputs: [ client_id ]
-    outputs: [ response ]
+    inputs: [client_id]
+    outputs: [response]
 
   ##
   ## Data-Only Flow Slots
@@ -179,15 +200,15 @@ slots:
 
   legacy_data_only:
     required: true
-    inputs: [ client_id, db_meta_prompt_items, db_ref_prompt_items ]
-    outputs: [ response ]
+    inputs: [client_id, db_meta_prompt_items, db_ref_prompt_items]
+    outputs: [response]
     requires:
       mcp:
         - name: db-meta
-          vars: [ db_meta_prompt_items ]     # inject into template vars
+          vars: [db_meta_prompt_items] # inject into template vars
           resources:
-            - "db-meta://schema/summary"         # optional: also save as extras
+            - "db-meta://schema/summary" # optional: also save as extras
         - name: db-ref
-          vars: [ db_ref_prompt_items ]
+          vars: [db_ref_prompt_items]
           resources:
             - "db-ref://entities/topk?k=50"
