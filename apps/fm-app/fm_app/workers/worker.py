@@ -167,12 +167,14 @@ def config_loggers(*args, **kwargs):
 def setup_agent_context(sender, **kwargs):
     # Run the agent initializer once on worker startup
     # asyncio.get_event_loop().run_until_complete(init_agent())
+    logger.info("Agent context setup placeholder")
 
 
 @app.on_after_finalize.disconnect
 def cleanup_agent_context(sender, **kwargs):
     # Run the agent initializer once on worker startup
     # asyncio.get_event_loop().run_until_complete(close_agent())
+    logger.info("Agent context setup placeholder")
 
 
 @app.task(name="wrk_add_request")
