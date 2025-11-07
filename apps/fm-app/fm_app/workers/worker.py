@@ -128,7 +128,7 @@ ENGINE_WH_NEW = create_engine(
     pool_pre_ping=True,
     pool_recycle=360,
 )
-SESSION_WH_NWW = sessionmaker(bind=ENGINE_WH_NEW, expire_on_commit=False)
+SESSION_WH_NEW = sessionmaker(bind=ENGINE_WH_NEW, expire_on_commit=False)
 
 ENGINE_WH_V2 = create_engine(
     DATABASE_URL_WH_V2,
@@ -176,13 +176,15 @@ def config_loggers(*args, **kwargs):
 @app.on_after_finalize.connect
 def setup_agent_context(sender, **kwargs):
     # Run the agent initializer once on worker startup
-    asyncio.get_event_loop().run_until_complete(init_agent())
+    # asyncio.get_event_loop().run_until_complete(init_agent())
+    logger.info("Agent context setup placeholder")
 
 
 @app.on_after_finalize.disconnect
 def cleanup_agent_context(sender, **kwargs):
     # Run the agent initializer once on worker startup
-    asyncio.get_event_loop().run_until_complete(close_agent())
+    # asyncio.get_event_loop().run_until_complete(close_agent())
+    logger.info("Agent context setup placeholder")
 
 
 @app.task(name="wrk_add_request")
@@ -195,7 +197,7 @@ async def _wrk_add_request(args):
     try:
         async for db in get_db():
             db_wh = SESSION_WH()
-            db_wh_new = SESSION_WH_NWW()
+            db_wh_new = SESSION_WH_NEW()
             db_wh_v2 = SESSION_WH_V2()
             logger.info(
                 "Got request",
