@@ -1,3 +1,70 @@
+"""
+Simple Flow - Basic SQL generation with natural language response.
+
+This flow provides a straightforward path for data queries with natural language
+responses, similar to data_only_flow but with conversational output:
+
+1. **Prompt Assembly**: Builds system prompt using "legacy_simple_request" slot
+   - Includes MCP context (db-meta and db-ref providers)
+   - Contains client-specific configuration and current datetime
+   - Uses slot-based template composition
+
+2. **SQL Generation**: LLM generates SQL query (single attempt, no retry)
+   - Expects ```sql ... ``` formatted response
+   - No structured output - uses plain text response
+
+3. **Query Validation**: Analyzes query via db-meta MCP server
+   - Calls db_meta_mcp_analyze_query for cost/complexity analysis
+   - Validates SQL syntax using sqlglot
+   - Logs errors but continues execution
+
+4. **Query Execution**: Runs SQL against warehouse database
+   - Uses run_structured_wh_request for execution
+   - Returns CSV data if successful
+   - Fails fast on execution errors (no retry)
+
+5. **Response Generation**: Asks LLM to format results naturally
+   - Uses "legacy_simple_response" slot for prompt
+   - Provides CSV data to LLM for natural language formatting
+   - Handles single-value vs multi-row responses differently
+
+6. **Response Cleanup**: Removes embedded CSV from final response
+   - Keeps CSV in structured_response.csv for client use
+   - Removes CSV blocks from natural language response
+   - Exception: Single-value results keep CSV inline
+
+Key characteristics:
+- Single-pass SQL generation (no retry loop)
+- Query analysis via MCP (unlike data_only_flow)
+- Natural language response generation (unlike data_only_flow)
+- Syntax validation with sqlglot
+- CSV cleanup for better user experience
+- No query metadata, storage, or lineage tracking
+- No cost-based optimization or query decomposition
+
+Comparison to other flows:
+- **vs data_only_flow**: Adds query analysis and natural language response
+- **vs flex_flow**: No adaptive execution or pipeline decomposition
+- **vs interactive_query_flow**: No retry loop, metadata, or storage
+- **vs multistep_flow**: Single-step vs iterative reasoning
+
+Use cases:
+- Simple data queries needing conversational responses
+- One-off questions that don't require follow-up
+- Scenarios where query analysis is useful but retries aren't needed
+- When natural language formatting adds value over raw CSV
+- Quick exploratory queries in conversational context
+
+Trade-offs:
++ Simpler than interactive/multistep flows
++ More user-friendly responses than data_only_flow
++ Query cost analysis for visibility
+- No error recovery (single attempt)
+- No query storage or reuse
+- No structured metadata
+- Limited error handling
+"""
+
 import csv
 import io
 import itertools
@@ -204,8 +271,8 @@ async def simple_flow(
             flow_step_num=next(flow_step),
         )
         ai_request = """
-            I did not find SQL request in your previous response. 
-            Considering you don't need any additional data. 
+            I did not find SQL request in your previous response.
+            Considering you don't need any additional data.
         """
 
     slot_vars = {
@@ -236,8 +303,8 @@ async def simple_flow(
             slot_vars = {
                 "client_id": settings.client_id,
                 "current_datetime": datetime.now().replace(microsecond=0),
-                "data": """Instead of formatting the supplied csv data, 
-                    insert CSV-formatted data (```csv ...```) 
+                "data": """Instead of formatting the supplied csv data,
+                    insert CSV-formatted data (```csv ...```)
                     in the relevant part of your response.\n """,
             }
 

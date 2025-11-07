@@ -1,4 +1,30 @@
-"""Interactive query handler - iterative query refinement with retry loop."""
+"""
+Interactive Query Flow - Structured SQL generation with validation and repair loop.
+
+This flow handles interactive query requests through a structured, iterative approach:
+
+1. **Prompt Assembly**: Builds system prompt using the "interactive_query" slot with MCP context
+2. **Conversation Context**: Includes session history to maintain conversational continuity
+3. **Structured LLM Response**: Requests QueryMetadata (summary, description, SQL, columns, result)
+4. **Validation Loop** (up to 3 attempts):
+   - Validates QueryMetadata consistency (SQL columns match metadata column_name values)
+   - Validates SQL via db-meta MCP server (explain_analyze)
+   - On validation errors: adds feedback to conversation and retries
+   - On SQL errors: extracts DB exception, provides repair instructions, retries
+5. **Query Storage**: Persists validated query with metadata, lineage (parent_id), and explanation
+6. **Session Management**: Updates session name with query summary for context
+7. **Response**: Returns structured response with intent, description, SQL, and metadata
+
+Key features:
+- Retry loop handles both metadata validation errors and SQL execution errors
+- Maintains query lineage through parent_id relationships
+- Stores rich metadata including columns, explanations, and row counts
+- Supports conversational queries that reference previous queries in the session
+- Validates that metadata columns exactly match SQL result columns
+
+This flow is optimized for interactive data exploration where users iteratively
+refine queries and build on previous results.
+"""
 
 import re
 

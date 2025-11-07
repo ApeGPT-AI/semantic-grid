@@ -1,3 +1,34 @@
+"""
+Data Only Flow - Simplified SQL generation and execution for raw data extraction.
+
+This flow provides a streamlined path for requests that only need data without
+natural language responses or complex processing:
+
+1. **Prompt Assembly**: Builds system prompt using the "legacy_data_only" slot with MCP context
+2. **SQL Generation**: LLM generates SQL query from user request (single attempt, no retry loop)
+3. **SQL Extraction**: Extracts SQL from LLM response (expects ```sql ... ``` format)
+4. **Syntax Validation**: Validates SQL syntax using sqlglot (logs errors but continues)
+5. **Query Execution**: Runs SQL against warehouse database
+6. **Data Return**: Returns raw CSV data in structured response
+
+Key characteristics:
+- No retry/repair loop - single attempt SQL generation
+- No query metadata, explanations, or column definitions
+- No natural language response generation
+- No query storage or lineage tracking
+- No cost/complexity analysis before execution
+- Minimal error handling - fails fast on SQL errors
+
+Use cases:
+- API-driven data extraction where clients handle their own error handling
+- Simple, well-defined queries that don't need iterative refinement
+- Batch data exports where speed is more important than validation
+- Programmatic integrations that work directly with CSV output
+
+This flow trades robustness and user-friendliness for speed and simplicity,
+making it suitable for programmatic access rather than interactive exploration.
+"""
+
 import itertools
 import pathlib
 import re

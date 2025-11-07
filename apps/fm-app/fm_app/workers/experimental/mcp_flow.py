@@ -1,3 +1,62 @@
+"""
+MCP Flow - Agent-based SQL generation with dual MCP server integration.
+
+This flow uses the Anthropic Agents framework to orchestrate SQL generation
+through direct MCP server interactions:
+
+1. **Prompt Assembly**: Builds instructions from multiple sources
+   - Expertise prefix (domain knowledge)
+   - DB-ref prompts (reference data, examples)
+   - MCP-specific instructions
+   - Model-specific instructions
+   - ClickHouse-specific SQL guidance
+
+2. **Dual MCP Server Setup**:
+   - DB Meta MCP Server (SSE): Provides schema metadata, validation tools
+   - Solana DB MCP Server (FastMCP): Executes queries via fetch_data tool
+
+3. **Agent Execution**: Uses Anthropic's Agent with structured output
+   - Agent name: "ApeGPT Solana Agent"
+   - Output type: StructuredResponse (includes SQL, CSV, metadata)
+   - Settings: Temperature=0, parallel_tool_calls=True
+   - MCP servers: db_meta_mcp for schema/validation
+
+4. **SQL Generation**: Agent generates SQL using MCP tools for schema context
+   - Calls MCP resources/functions with db_name parameter
+   - Leverages parallel tool calls for efficiency
+   - Returns structured response with SQL
+
+5. **Query Execution**: Executes SQL via solana_db.py MCP server
+   - Uses FastMCP Client to call fetch_data tool
+   - Passes SQL, db, and settings to the tool
+   - Retrieves CSV results from tool response
+
+6. **Error Handling**: Comprehensive error handling for MCP client operations
+   - ClientError: Tool call failures
+   - ConnectionError: MCP server connection issues
+   - General exceptions: Unexpected errors
+
+Key features:
+- Agent-based orchestration vs direct LLM calls
+- Dual MCP server architecture (SSE + FastMCP)
+- Structured output with type validation
+- Parallel tool calling for performance
+- Direct MCP tool execution for queries
+
+Differences from other flows:
+- Uses Anthropic Agents framework vs raw LLM API
+- MCP servers are first-class citizens (agent-integrated)
+- No retry loop (agent handles tool interactions)
+- No query storage or lineage tracking
+- Focused on demonstration of MCP integration patterns
+
+Use cases:
+- Demonstrating MCP server integration patterns
+- Agent-based query workflows
+- Scenarios requiring multiple MCP servers in coordination
+- Prototyping agentic SQL generation approaches
+"""
+
 import datetime
 import json
 from typing import Type
@@ -17,7 +76,7 @@ from fm_app.api.model import RequestStatus, StructuredResponse, WorkerRequest
 from fm_app.config import get_settings
 from fm_app.mcp_servers.db_meta import get_db_name
 from fm_app.mcp_servers.db_ref import get_db_ref_prompt_items
-from fm_app.workers.prompt_elements import (
+from fm_app.workers.experimental.prompt_elements import (
     expertise_prefix,
     instruction_clickhouse,
     instruction_mcp,
@@ -59,10 +118,10 @@ async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
     print("\n\nDBREF:", ts1 - ts, "\n\n")
 
     instructions = f"""
-       {expertise_prefix}\n 
+       {expertise_prefix}\n
        {dbref_prompts}\n
        {instruction_mcp}\n
-       When calling MCP resources or functions that requre **db_name** param, 
+       When calling MCP resources or functions that requre **db_name** param,
        use db_name="{db_name}"\n
        {ai_model.get_specific_instructions()}\n
        {instruction_clickhouse}

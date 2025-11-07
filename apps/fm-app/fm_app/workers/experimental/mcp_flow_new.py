@@ -1,3 +1,68 @@
+"""
+MCP Flow New - Optimized agent-based SQL generation with persistent MCP connections.
+
+This is an improved version of mcp_flow that optimizes MCP server connections
+through agent reuse and persistent connections:
+
+1. **Prompt Assembly**: Builds instructions from DB-ref prompts and model-specific guidance
+   - DB-ref prompts (reference data, examples)
+   - MCP-specific instructions (via init_agent)
+   - Model-specific instructions
+   - Note: Simplified compared to mcp_flow (no ClickHouse-specific instructions inline)
+
+2. **Persistent Agent Initialization**: Uses init_agent() for singleton agent pattern
+   - Caches agent instance globally (_agent, _dbmeta_mcp)
+   - Maintains persistent MCP server connection
+   - Agent name: "ApeGPT Solana Agent"
+   - Cache tools list for performance
+
+3. **Message-Based Interface**: Uses OpenAI-style message format
+   - System message: instructions with db_name context
+   - User message: request content
+   - Passed to Runner.run() as message list
+
+4. **Configurable Runner**: Separates model config from agent definition
+   - RunConfig with temperature=0, parallel_tool_calls=True
+   - Model specified at runtime vs agent creation time
+   - Allows agent reuse across different models
+
+5. **SQL Generation**: Agent generates SQL using persistent MCP connection
+   - Single DB Meta MCP Server (SSE) via init_agent
+   - Structured output: StructuredResponse with SQL
+   - Returns final_output.sql
+
+6. **Query Execution**: Same as mcp_flow
+   - Executes SQL via solana_db.py MCP server
+   - Uses FastMCP Client to call fetch_data tool
+   - Returns CSV results
+
+7. **Error Handling**: Identical to mcp_flow
+   - ClientError, ConnectionError, general exceptions
+   - Comprehensive error capture and logging
+
+Key differences from mcp_flow:
+- **Agent Reuse**: Singleton pattern vs per-request agent creation
+- **Persistent MCP Connection**: Cached connection vs new connection each time
+- **Simplified Prompts**: Removed expertise_prefix and instruction_clickhouse inline
+- **Message-Based**: Uses EasyInputMessageParam vs direct string instructions
+- **Runtime Model Config**: RunConfig separation allows flexible model selection
+- **Single MCP Server**: Only DB Meta (no dual server setup in flow itself)
+- **Performance**: Faster due to connection reuse and tool list caching
+
+Trade-offs:
++ Better performance through connection/agent reuse
++ Cleaner separation of concerns (agent init vs flow logic)
+- Less flexible prompt composition per request
+- Shared agent state across requests (potential concurrency issues)
+- Hardcoded MCP server URL in init_agent (https://api.apegpt.ai/sse)
+
+Use cases:
+- High-throughput scenarios where agent reuse matters
+- Production deployments with stable MCP endpoints
+- Scenarios where connection overhead is significant
+- When tool list caching provides measurable benefits
+"""
+
 import datetime
 import json
 from typing import Type
@@ -18,7 +83,7 @@ from fm_app.api.model import RequestStatus, StructuredResponse, WorkerRequest
 from fm_app.config import get_settings
 from fm_app.mcp_servers.db_meta import get_db_name
 from fm_app.mcp_servers.db_ref import get_db_ref_prompt_items
-from fm_app.workers.agent import init_agent
+from fm_app.workers.experimental.agent import init_agent
 
 server_script = "fm_app/mcp_servers/solana_db.py"  # Path to a Python server file
 
@@ -57,7 +122,7 @@ async def mcp_flow(
 
     instructions = f"""
        {dbref_prompts}\n
-       When calling MCP resources or functions that requre **db_name** param, 
+       When calling MCP resources or functions that requre **db_name** param,
                use db_name="{db_name}"\n
        {ai_model.get_specific_instructions()}\n
        """

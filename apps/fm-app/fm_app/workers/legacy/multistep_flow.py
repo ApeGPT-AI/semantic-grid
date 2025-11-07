@@ -1,3 +1,81 @@
+"""
+Multistep Flow - Iterative investigation with conversational refinement and visualization.
+
+This advanced flow orchestrates complex data investigations through multiple
+LLM reasoning steps with retry loops, chart generation, and session continuity:
+
+1. **Intent Analysis** (multistep_intent slot):
+   - Analyzes user request with session history context
+   - Extracts user intent and summary
+   - Identifies if additional clarification is needed
+   - Updates session name with summary
+
+2. **Investigation Loop** (up to max_steps iterations):
+   - Uses InvestigationStep structured output for each step
+   - Three possible outcomes per step:
+     a) Generate SQL and execute
+     b) Request additional information from user
+     c) Provide final response to user
+
+3. **SQL Generation and Validation** (multistep_request slot):
+   - Generates SQL with syntax validation (sqlglot)
+   - Executes query against warehouse
+   - On SQL errors: adds error to conversation and retries
+   - On syntax errors: provides feedback and regenerates
+   - Collects user-friendly assumptions throughout
+
+4. **Data Processing and Response**:
+   - Detects chart requests (keywords: chart, graph, diagram)
+   - Routes to appropriate response slot:
+     * multistep_chart: For visualization requests
+     * multistep_response: For data responses
+     * multistep_response_plain: For simple responses
+
+5. **Chart Generation** (two modes):
+   - **Python code mode**: Extracts ```python``` blocks, executes plotly code
+   - **HTML mode**: Auto-generates Bar/Pie charts from rows/labels
+   - Uploads charts and returns URLs embedded in response
+
+6. **Response Assembly**:
+   - Structured response with: intro, outro, assumptions, SQL, CSV
+   - Embeds chart URLs as images or iframes
+   - Includes raw data (rows, labels) for client-side rendering
+
+7. **Conversation Management**:
+   - Maintains full conversation history (including responses)
+   - Appends structured outputs back to conversation
+   - Session-aware with query lineage
+
+Key features:
+- **Iterative reasoning**: Multi-step investigation with retry capability
+- **Chart generation**: Both code-based (plotly) and auto-generated (Bar/Pie)
+- **Error recovery**: Automatic retry on SQL/syntax errors with contextual feedback
+- **Conversational**: Full history context for follow-up questions
+- **Flexible output**: Returns both structured data and natural language
+- **Assumption tracking**: Captures and surfaces LLM assumptions to users
+
+Differences from other flows:
+- Multi-step iterative reasoning vs single-pass generation
+- Built-in visualization capabilities
+- Conversational with full history (vs request-only context)
+- Supports clarification requests
+- More sophisticated error recovery loop
+- Tracks and surfaces assumptions
+
+Use cases:
+- Complex exploratory data analysis requiring multiple steps
+- Investigations where the path isn't clear from initial request
+- Scenarios requiring data visualization
+- Interactive sessions with follow-up questions
+- Cases where surfacing LLM assumptions adds value
+- Investigations that may need user clarification mid-flow
+
+Configuration:
+- max_steps: Configurable iteration limit (settings.max_steps)
+- Chart detection: Keyword-based (chart, graph, diagram, pie)
+- Chart types: Bar (default), Pie (keyword-triggered)
+"""
+
 import itertools
 import json
 import pathlib
@@ -180,7 +258,7 @@ async def multistep_flow(
     # TODO: separate into a separate flow
 
     req.response = """
-        Unfortunately I can't answer to your question. 
+        Unfortunately I can't answer to your question.
         Please reformulate it and try one more time.
     """
     await update_request_status(RequestStatus.sql, None, db, req.request_id)
@@ -320,8 +398,8 @@ async def multistep_flow(
                 messages.append(
                     {
                         "role": "system",
-                        "content": f"""We have SQL syntax error: {str(e)}\n. 
-                                Please regenerate SQL to fix the issue. 
+                        "content": f"""We have SQL syntax error: {str(e)}\n.
+                                Please regenerate SQL to fix the issue.
                                 This is unacceptable!""",
                     }
                 )
@@ -369,8 +447,8 @@ async def multistep_flow(
                     {
                         "role": "system",
                         "content": f"""
-                        We have got DB exception: {error_message}\n. 
-                        Please regenerate SQL to fix the issue. 
+                        We have got DB exception: {error_message}\n.
+                        Please regenerate SQL to fix the issue.
                         Remember instructions from original prompt!.
                     """,
                     }
@@ -416,7 +494,7 @@ async def multistep_flow(
                 if chart_requested:
                     chart_vars = {
                         "client_id": settings.client_id,
-                        "chart_data": f"```csv \n {wh_result.get("csv")} \n```",
+                        "chart_data": f"```csv \n {wh_result.get('csv')} \n```",
                         "current_datetime": datetime.now().replace(microsecond=0),
                     }
 
@@ -437,11 +515,10 @@ async def multistep_flow(
                     # """
 
                 else:
-
                     if wh_result.get("rows") > 0:
                         response_vars = {
                             "client_id": settings.client_id,
-                            "response_data": f"```csv \n {wh_result.get("csv")} \n```",
+                            "response_data": f"```csv \n {wh_result.get('csv')} \n```",
                             "current_datetime": datetime.now().replace(microsecond=0),
                         }
 
@@ -456,7 +533,7 @@ async def multistep_flow(
                     else:
                         response_vars = {
                             "client_id": settings.client_id,
-                            "response_data": f"```csv \n {wh_result.get("csv")} \n```",
+                            "response_data": f"```csv \n {wh_result.get('csv')} \n```",
                             "current_datetime": datetime.now().replace(microsecond=0),
                         }
 

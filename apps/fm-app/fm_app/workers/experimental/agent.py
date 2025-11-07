@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 from fm_app.api.model import StructuredResponse
 from fm_app.config import get_settings
-from fm_app.workers.prompt_elements import (
+from fm_app.workers.experimental.prompt_elements import (
     expertise_prefix,
     instruction_mcp,
 )
@@ -19,9 +19,8 @@ async def init_agent() -> (MCPServerSse, Agent[StructuredResponse]):
     global _agent, _dbmeta_mcp
 
     if _agent is None:
-
         instructions = f"""
-               {expertise_prefix}\n 
+               {expertise_prefix}\n
                {instruction_mcp}\n
                """
 

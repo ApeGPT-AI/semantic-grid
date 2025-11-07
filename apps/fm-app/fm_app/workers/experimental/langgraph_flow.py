@@ -1,3 +1,52 @@
+"""
+LangGraph Flow - Multi-step query decomposition with dynamic execution graphs.
+
+This experimental flow uses LangGraph to orchestrate complex queries through
+dynamically constructed execution pipelines:
+
+1. **Graph Definition**: Loads a YAML-based node/edge configuration (pipeline.yml)
+   - process_input_node: Clarifies user input (currently a passthrough)
+   - generate_execution_plan_node: Creates multi-step execution plan
+   - format_response_node: Formats final results
+
+2. **LLM Planning**: Asks LLM to decompose query into ExecutionPipeline
+   - Uses "legacy_langchain" prompt slot with MCP context
+   - Generates structured pipeline with steps, dependencies, and metadata
+   - Each step contains: SQL, output table name, metadata (for deterministic IDs)
+
+3. **Dynamic Subgraph Construction**: Builds a LangGraph subgraph from the plan
+   - Creates nodes for each step with automatic dependency resolution
+   - Resolves logical table references (<step_X_id>) to physical temp tables
+   - Computes deterministic table names using content-based hashing (SHA-256)
+
+4. **Step Execution**: Runs each step sequentially or in parallel based on dependencies
+   - Executes SQL via MCP tool (fetch_data from solana_db.py MCP server)
+   - Materializes intermediate results as temp tables
+   - Passes results forward to dependent steps
+
+5. **Result Aggregation**: Collects final output from the designated output_step_id
+
+6. **Response Formatting**: Returns CSV data in structured response
+
+Key features:
+- Content-addressable intermediate tables (hash-based naming for caching)
+- Dependency-aware execution ordering
+- MCP server integration for query execution (solana_db.py)
+- YAML-configurable graph structure for flexibility
+- Deterministic pipeline IDs enable result caching and reproducibility
+
+Differences from other flows:
+- Multi-step decomposition vs single SQL generation
+- Graph-based orchestration vs linear execution
+- Intermediate materialization vs direct execution
+- Experimental/advanced vs production-ready
+
+Use cases:
+- Complex analytical queries requiring multiple intermediate steps
+- Queries benefiting from result caching between steps
+- Advanced optimization scenarios with explicit dependency graphs
+"""
+
 import hashlib
 import itertools
 import json
@@ -36,7 +85,7 @@ from fm_app.mcp_servers.mcp_async_providers import (
     DbRefAsyncProvider,
 )
 from fm_app.prompt_assembler.prompt_packs import PromptAssembler
-from fm_app.workers.model import ExecutionPipeline, QueryMetadata, Step
+from fm_app.workers.experimental.model import ExecutionPipeline, QueryMetadata, Step
 
 load_dotenv(".env")
 settings = Settings()
@@ -347,7 +396,7 @@ async def langgraph_flow(
         flow_step_num=next(flow_step),
         flow=req.flow,
     )
-    pipeline = load_graph_from_yaml("./fm_app/workers/pipeline.yml")
+    pipeline = load_graph_from_yaml("./fm_app/workers/experimental/pipeline.yml")
     state = {
         "user_input": req.request,
         "user_id": req.user,

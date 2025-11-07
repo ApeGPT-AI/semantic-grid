@@ -1,3 +1,21 @@
+"""
+Flex Flow - Adaptive SQL query generation and execution pipeline.
+
+This flow handles natural language requests by:
+1. Converting user requests into SQL queries using LLM (via "legacy_flex_flow" slot)
+2. Analyzing query complexity/cost via db-meta MCP server (explain_analyze)
+3. For expensive queries (high rows/marks/parts): breaks query into a multi-stage pipeline
+   - LLM generates a JSON pipeline with intermediate DuckDB processing steps
+   - Executes stages sequentially: warehouse → DuckDB → warehouse → DuckDB → final result
+   - Uses DuckDB for aggregations/transformations to reduce warehouse load
+4. For simple queries: executes directly against the warehouse
+5. Formats results as CSV and asks LLM to generate a natural language response
+6. Returns both structured data (SQL, CSV) and conversational response to the user
+
+The flow adapts its execution strategy based on query complexity, providing efficient
+handling of both simple lookups and complex analytical queries requiring intermediate processing.
+"""
+
 import csv
 import io
 import itertools
@@ -241,15 +259,15 @@ async def flex_flow(
                 csv_buffer.close()
 
                 ai_request = f"""
-                                Here is the data you requested on previous step 
+                                Here is the data you requested on previous step
                                 in CSV format ```csv \n
                                 {csv_string} \n```\n
                             """
                 ai_request = (
                     ai_request
                     + """
-                            Please generate final response to original user input.\n 
-                            If there is no data needed please prepare polite response 
+                            Please generate final response to original user input.\n
+                            If there is no data needed please prepare polite response
                             that we have not necessary data.\n
                         """
                 )
@@ -262,8 +280,8 @@ async def flex_flow(
                 if len(csv_headers) > 1 or len(csv_rows) > 1:
                     ai_request = (
                         ai_request
-                        + """Instead of formatting the supplied csv data, 
-                                    insert CSV-formatted data (```csv ...```) 
+                        + """Instead of formatting the supplied csv data,
+                                    insert CSV-formatted data (```csv ...```)
                                     in the relevant part of your response.\n """
                     )
                 if ai_model.get_name() != "gemini":
@@ -360,15 +378,15 @@ async def flex_flow(
             flow_step_num=next(flow_step),
         )
         ai_request = """
-            I did not find SQL request in your previous response. 
-            Considering you don't need any additional data. 
+            I did not find SQL request in your previous response.
+            Considering you don't need any additional data.
         """
 
     ai_request = (
         ai_request
         + """
-            Please generate final response to original user input.\n 
-            If there is no data needed please prepare polite response 
+            Please generate final response to original user input.\n
+            If there is no data needed please prepare polite response
             that we have not necessary data.\n
         """
     )
@@ -385,8 +403,8 @@ async def flex_flow(
         if len(csv_headers) > 1 or len(csv_rows) > 1:
             ai_request = (
                 ai_request
-                + """Instead of formatting the supplied csv data, 
-                    insert CSV-formatted data (```csv ...```) 
+                + """Instead of formatting the supplied csv data,
+                    insert CSV-formatted data (```csv ...```)
                     in the relevant part of your response.\n """
             )
 
