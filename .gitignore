@@ -40,3 +40,7 @@ yarn-error.log*
 *.pem
 
 secrets/
+
+*.egg
+*.egg-info
+*.egg-info/**/*

@@ -1,8 +1,0 @@
-alembic
-docker-compose
-docs
-examples
-fm_app
-k8s
-static
-tests
