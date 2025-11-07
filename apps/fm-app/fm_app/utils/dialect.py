@@ -54,7 +54,7 @@ def get_warehouse_dialect() -> str:
             return "tsql"
         else:
             # Default fallback
-            return "clickhouse"
+            return driver.lower()
 
 
 def get_dialect_from_query(
