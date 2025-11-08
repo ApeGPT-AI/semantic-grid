@@ -22,7 +22,7 @@ async def handle_data_analysis(ctx: FlowContext) -> None:
     flow_step = ctx.flow_step
     request_session = ctx.request_session
 
-    data_analysis_vars = build_prompt_variables(ctx)
+    data_analysis_vars = await build_prompt_variables(ctx)
 
     db_meta_caps = {}
     mcp_ctx = {

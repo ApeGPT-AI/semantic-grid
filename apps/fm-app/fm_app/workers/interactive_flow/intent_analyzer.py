@@ -8,6 +8,7 @@ from fm_app.api.model import (
 )
 from fm_app.db.db import (
     get_history,
+    get_query_history,
     update_request,
     update_request_status,
 )
@@ -24,7 +25,7 @@ async def analyze_intent(ctx: FlowContext) -> IntentAnalysis:
     db = ctx.db
     flow_step = ctx.flow_step
 
-    planner_vars = build_prompt_variables(ctx)
+    planner_vars = await build_prompt_variables(ctx)
 
     db_meta_caps = {}
     mcp_ctx = {
@@ -45,7 +46,27 @@ async def analyze_intent(ctx: FlowContext) -> IntentAnalysis:
 
     intent_llm_system_prompt = slot.prompt_text
 
-    history = await get_history(db, req.session_id, include_responses=False)
+    # Use query-specific history if working on a specific query (via /for_query endpoint)
+    # Otherwise use session history for new queries
+    if req.query is not None:
+        history = await get_query_history(
+            db, req.query.query_id, include_responses=False
+        )
+        logger.info(
+            "Using query-specific history for intent",
+            flow_stage="query_history_intent",
+            flow_step_num=next(flow_step),
+            query_id=str(req.query.query_id),
+            history_length=len(history),
+        )
+    else:
+        history = await get_history(db, req.session_id, include_responses=False)
+        logger.info(
+            "Using session history for intent",
+            flow_stage="session_history_intent",
+            flow_step_num=next(flow_step),
+            history_length=len(history),
+        )
 
     if ai_model.get_name() != "gemini":
         messages = [{"role": "system", "content": intent_llm_system_prompt}]

@@ -30,6 +30,18 @@ slots:
     inputs: [client_id, intent_hint, query_metadata]
     outputs: [query_metadata]
 
+  discovery:
+    # welcome user to fresh session and show database overview
+    required: false
+    inputs: [client_id, intent_hint, db_overview]
+    outputs: [response]
+    requires:
+      mcp:
+        - name: db-meta
+          vars: [db_overview]
+          resources:
+            - "db-meta://database/overview"
+
   manual_query:
     # start of a session from a SQL; LLM job is to create query metadata and descriptions from SQL
     required: false

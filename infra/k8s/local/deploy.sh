@@ -105,11 +105,9 @@ echo
 kubectl get svc -n local
 
 echo -e "\n${GREEN}=== Deployment Complete ===${NC}"
-echo -e "\nTo access services, use port-forwarding:"
-echo -e "  ${YELLOW}kubectl port-forward -n local svc/fm-app-svc 8080:8080${NC}"
-echo -e "  ${YELLOW}kubectl port-forward -n local svc/dbmeta-svc 8081:8080${NC}"
-echo -e "  ${YELLOW}kubectl port-forward -n local svc/rabbitmq 15672:15672${NC}"
 
 echo -e "\nTo view logs:"
-echo -e "  ${YELLOW}kubectl logs -n local -l app=fm-app -c fm-app --tail=50${NC}"
-echo -e "  ${YELLOW}kubectl logs -n local -l app=dbmeta-app --tail=50${NC}"
+echo -e "  ${YELLOW}kubectl logs -n local -l app=fm-app -c fm-app --tail=50 -f${NC}"
+echo -e "  ${YELLOW}kubectl logs -n local -l app=dbmeta-app --tail=50 -f${NC}"
+
+echo -e "\n${YELLOW}Note: Run './infra/k8s/local/port-forward.sh' to set up port-forwarding${NC}"

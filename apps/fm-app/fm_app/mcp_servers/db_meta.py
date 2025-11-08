@@ -91,3 +91,49 @@ async def db_meta_mcp_analyze_query(
             raise e
 
     return json.loads(prompts[0].text)
+
+
+async def get_db_meta_database_overview(
+    req: McpServerRequest, flow_step_num, settings, logger
+):
+    """Get high-level database overview for discovery/welcome messages."""
+    db = get_db_name(req)
+
+    # Extract mode from request if present (format: "command|mode=value")
+    mode = "help"  # default
+    if "|mode=" in req.request:
+        parts = req.request.split("|mode=")
+        if len(parts) > 1:
+            mode = parts[1]
+
+    client = Client(f"""{settings.dbmeta}sse""")
+    async with client:
+        try:
+            result = await client.call_tool(
+                "get_database_overview",
+                {
+                    "db": db,
+                    "mode": mode,
+                },
+            )
+            overview_text = result[0].text
+            print(f">>> DATABASE_OVERVIEW mode={mode} len={len(overview_text)}")
+            print(f">>> OVERVIEW_PREVIEW: {overview_text[:500]}")
+            logger.info(
+                "Got database overview",
+                flow_stage="discovery_overview",
+                flow_step_num=flow_step_num,
+                mode=mode,
+                overview_length=len(overview_text),
+            )
+
+        except Exception as e:
+            logger.error(
+                "Error getting database overview",
+                flow_stage="error",
+                flow_step_num=flow_step_num,
+                error=str(e),
+            )
+            raise e
+
+    return overview_text

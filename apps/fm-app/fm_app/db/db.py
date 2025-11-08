@@ -36,7 +36,7 @@ async def add_new_session(
     add_session_sql = text(
         """
     INSERT INTO session (name, tags, user_owner, session_id, parent, refs)
-    VALUES (:name, :tags, :user_owner, :session_id, :parent, :refs) 
+    VALUES (:name, :tags, :user_owner, :session_id, :parent, :refs)
     RETURNING session_id, name, tags, user_owner as "user", created_at, parent, refs;
     """
     )
@@ -96,29 +96,29 @@ async def get_all_sessions(user_owner: str, db: AsyncSession) -> list[GetSession
     )
     get_all_session_sql = text(
         """
-    SELECT 
-        s.session_id, 
-        s.name, tags, 
-        s.user_owner as "user", 
-        s.created_at, 
-        s.metadata, 
-        s.refs, 
+    SELECT
+        s.session_id,
+        s.name, tags,
+        s.user_owner as "user",
+        s.created_at,
+        s.metadata,
+        s.refs,
         s.parent,
         COUNT(r.id) AS message_count
     FROM session s
-    LEFT JOIN 
-         request r 
+    LEFT JOIN
+         request r
          ON s.session_id = r.session_id
-    WHERE 
+    WHERE
         s.user_owner = :user_owner
-    GROUP BY 
-        s.session_id, 
-        s.name, 
-        s.tags, 
-        s.user_owner, 
-        s.created_at, 
-        s.metadata, 
-        s.refs, 
+    GROUP BY
+        s.session_id,
+        s.name,
+        s.tags,
+        s.user_owner,
+        s.created_at,
+        s.metadata,
+        s.refs,
         s.parent
     ;
     """
@@ -293,26 +293,26 @@ async def add_request(
     refs_dict = add_req.refs.model_dump() if add_req.refs else None
     add_req_sql = text(
         """
-        INSERT 
+        INSERT
         INTO request (session_id, request_id, task_id, sequence_number, request, status, refs, query_id)
         VALUES (
-            :session_id, 
-            :request_id, 
-            :task_id, 
-            (SELECT COALESCE(MAX(sequence_number), -1) + 1 FROM request WHERE session_id = :session_id), 
-            :request, 
-            :status, 
+            :session_id,
+            :request_id,
+            :task_id,
+            (SELECT COALESCE(MAX(sequence_number), -1) + 1 FROM request WHERE session_id = :session_id),
+            :request,
+            :status,
             :refs,
             :query_id
         )
-        RETURNING 
-            session_id, 
-            request_id, 
-            sequence_number, 
-            created_at, 
-            request, 
-            response, 
-            status, 
+        RETURNING
+            session_id,
+            request_id,
+            sequence_number,
+            created_at,
+            request,
+            response,
+            status,
             refs,
             query_id
         ;
@@ -576,10 +576,10 @@ async def update_request_failure(
     try:
         update_sql = text(
             """
-            UPDATE request 
-            SET 
-                err=:err, 
-                status=:status 
+            UPDATE request
+            SET
+                err=:err,
+                status=:status
             WHERE task_id=:task_id
         """
         )
@@ -606,8 +606,8 @@ async def update_request(db: AsyncSession, update: UpdateRequestModel):
 
         update_sql = text(
             """
-            UPDATE request 
-            SET 
+            UPDATE request
+            SET
                 status=COALESCE(:status, status),
                 response=COALESCE(:response, response),
                 err=COALESCE(:err, err),
@@ -673,10 +673,10 @@ async def update_request_status(
     try:
         update_sql = text(
             """
-            UPDATE request 
-            SET err=:err, status=:status 
+            UPDATE request
+            SET err=:err, status=:status
             WHERE request_id=:request_id
-            RETURNING *;    
+            RETURNING *;
         """
         )
         result = await db.execute(
@@ -700,8 +700,8 @@ async def update_review(
     try:
         update_sql = text(
             """
-            UPDATE request 
-            SET rating=:rating, review=:review 
+            UPDATE request
+            SET rating=:rating, review=:review
             WHERE request_id=:request_id
             RETURNING *;
         """
@@ -744,8 +744,8 @@ async def delete_request_revert_session(
         # step 2. load previous request for this session (if exists)
         get_prev_request_sql = text(
             """
-            SELECT * FROM request 
-            WHERE session_id = :session_id 
+            SELECT * FROM request
+            WHERE session_id = :session_id
             AND sequence_number < (
                 SELECT sequence_number FROM request WHERE request_id = :request_id
             )
@@ -763,7 +763,7 @@ async def delete_request_revert_session(
         if prev_request_data and prev_request_data.get("sql"):
             update_session_sql = text(
                 """
-                UPDATE session SET metadata = jsonb_set(metadata, '{sql}', :query) 
+                UPDATE session SET metadata = jsonb_set(metadata, '{sql}', :query)
                 WHERE session_id = :session_id;
             """
             )
@@ -993,6 +993,52 @@ async def get_history(
         logging.error(f"SQL execution error {e}")
 
 
+async def get_query_history(
+    db: AsyncSession, query_id: UUID, include_responses: bool = False
+):
+    """Get conversation history specific to a query by tracing parent_id chain."""
+    try:
+        # Recursively get all parent queries to build the conversation chain
+        get_query_chain_sql = text(
+            """
+            WITH RECURSIVE query_chain AS (
+                -- Start with the target query
+                SELECT query_id, request, parent_id, 1 as depth
+                FROM query
+                WHERE query_id = :query_id
+
+                UNION ALL
+
+                -- Recursively get parent queries
+                SELECT q.query_id, q.request, q.parent_id, qc.depth + 1
+                FROM query q
+                INNER JOIN query_chain qc ON q.query_id = qc.parent_id
+            )
+            SELECT query_id, request
+            FROM query_chain
+            ORDER BY depth DESC
+            LIMIT 10;
+            """
+        )
+        result = await db.execute(get_query_chain_sql, params={"query_id": query_id})
+        result = result.mappings().fetchall()
+
+        if not result:
+            return []
+
+        history = list()
+        for item in result:
+            if item.get("request"):
+                history.append({"role": "user", "content": item.get("request")})
+                # Note: We don't include responses for query history since queries don't have response field
+
+        return history
+
+    except SQLAlchemyError as e:
+        logging.error(f"SQL execution error {e}")
+        return []
+
+
 async def create_query(
     db: AsyncSession,
     init: CreateQueryModel,
@@ -1010,7 +1056,7 @@ async def create_query(
 
     add_query_sql = text(
         """
-        INSERT 
+        INSERT
             INTO query (query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id)
             VALUES (:query_id, :request, :intent, :summary, :description, :sql, :row_count, :columns, :ai_generated, :ai_context, :data_source, :db_dialect, :explanation, :parent_id)
             RETURNING query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id;
@@ -1062,7 +1108,7 @@ async def update_query(
     )
     update_query_sql = text(
         """
-        UPDATE query 
+        UPDATE query
         SET row_count = :row_count, explanation = :explanation, err = :err, updated_at = now()
         WHERE query_id = :query_id
         RETURNING query_id, created_at, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation;
@@ -1139,7 +1185,7 @@ async def get_queries(
         """
         SELECT query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id
         FROM query
-        LIMIT limit = :limit 
+        LIMIT limit = :limit
         OFFSET offset = :offset;
         """
     )

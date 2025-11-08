@@ -41,6 +41,7 @@ from fm_app.db.db import (
     create_query,
     get_all_requests,
     get_history,
+    get_query_history,
     update_query_metadata,
     update_request,
     update_request_status,
@@ -64,9 +65,29 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
     flow_step = ctx.flow_step
     request_session = ctx.request_session
 
-    history = await get_history(db, req.session_id, include_responses=False)
+    # Use query-specific history if working on a specific query (via /for_query endpoint)
+    # Otherwise use session history for new queries
+    if req.query is not None:
+        history = await get_query_history(
+            db, req.query.query_id, include_responses=False
+        )
+        logger.info(
+            "Using query-specific history",
+            flow_stage="query_history",
+            flow_step_num=next(flow_step),
+            query_id=str(req.query.query_id),
+            history_length=len(history),
+        )
+    else:
+        history = await get_history(db, req.session_id, include_responses=False)
+        logger.info(
+            "Using session history",
+            flow_stage="session_history",
+            flow_step_num=next(flow_step),
+            history_length=len(history),
+        )
 
-    interactive_query_vars = build_prompt_variables(ctx)
+    interactive_query_vars = await build_prompt_variables(ctx)
 
     db_meta_caps = {}
     mcp_ctx = {

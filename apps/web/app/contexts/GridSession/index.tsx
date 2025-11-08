@@ -459,6 +459,8 @@ export const GridSessionProvider = ({
     }
   }, []);
 
+  // /new request is now auto-sent during session creation on the server
+
   useEffect(() => {
     if (chat) {
       // reduce chat.messages to sections by grouping pairs of messages via refs.columns

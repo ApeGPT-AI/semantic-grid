@@ -142,7 +142,7 @@ const GridItemNavClient = ({
           {/* Spacer between primary nav and right-side controls */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {showBanner && (
+          {/* showBanner && (
             <Box>
               <Typography
                 color="primary.main"
@@ -153,7 +153,7 @@ const GridItemNavClient = ({
                 Loading AI Editor...
               </Typography>
             </Box>
-          )}
+          ) */}
 
           <ItemViewSwitcher />
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class Refs(BaseModel):
+    parent: Optional[UUID] = None
     steps: Optional[list[UUID]] = None
     cols: Optional[list[str]] = None
     rows: Optional[list[list[Union[str, int, float]]]] = None
@@ -37,6 +38,7 @@ class InteractiveRequestType(str, Enum):
     linked_session = "linked_session"
     linked_query = "linked_query"
     manual_query = "manual_query"
+    discovery = "discovery"
     # chart_request = "chart_request"
 
 
@@ -105,7 +107,7 @@ class View(BaseModel):
 
 
 class QueryMetadata(BaseModel):
-    id: UUID
+    id: Optional[UUID] = None
     summary: Optional[str] = None
     sql: Optional[str] = None
     query_follow_ups: Optional[list[str]] = None
@@ -235,6 +237,7 @@ class CreateQueryModel(BaseModel):
     explanation: Optional[dict[str, Any]] = None
     parent_id: Optional[UUID] = None
     err: Optional[str] = None
+
 
 class CreateQueryFromSqlModel(BaseModel):
     request: str

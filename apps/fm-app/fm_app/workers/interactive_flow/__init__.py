@@ -10,6 +10,7 @@ from fm_app.api.model import InteractiveRequestType, RequestStatus, WorkerReques
 from fm_app.db.db import update_request_status
 from fm_app.stopwatch import stopwatch
 from fm_app.workers.interactive_flow.data_analysis import handle_data_analysis
+from fm_app.workers.interactive_flow.discovery import handle_discovery
 from fm_app.workers.interactive_flow.general_response import handle_general_response
 from fm_app.workers.interactive_flow.intent_analyzer import analyze_intent
 from fm_app.workers.interactive_flow.interactive_query import handle_interactive_query
@@ -43,6 +44,10 @@ async def interactive_flow(
 
     elif req.request_type == InteractiveRequestType.linked_query:
         await handle_linked_query(ctx)
+        return req
+
+    elif req.request_type == InteractiveRequestType.discovery:
+        await handle_discovery(ctx)
         return req
 
     else:
