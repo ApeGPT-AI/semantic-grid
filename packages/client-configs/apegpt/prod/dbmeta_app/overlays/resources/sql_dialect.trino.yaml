@@ -1,0 +1,14 @@
+# sql_dialect.trino.yaml
+#
+# REFERENCE FILE: This file shows how to configure Trino SQL dialect.
+#
+# TO USE TRINO INSTEAD OF CLICKHOUSE:
+# 1. Copy the content from packages/templates/dbmeta_app/resources/sql_dialect.trino.yaml
+# 2. Create/update sql_dialect.yaml in this directory with that content
+# 3. The system will use Trino dialect instructions instead of ClickHouse
+#
+# Alternatively, you can rename this file to sql_dialect.yaml to activate Trino.
+#
+# See packages/templates/dbmeta_app/resources/ for available dialect templates:
+# - sql_dialect.clickhouse.yaml (default)
+# - sql_dialect.trino.yaml

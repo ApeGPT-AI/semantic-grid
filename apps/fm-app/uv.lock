@@ -953,7 +953,7 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
     { name = "tqdm" },
-    { name = "trino", extra = ["sqlalchemy"] },
+    { name = "trino" },
     { name = "typer" },
     { name = "typing-extensions" },
     { name = "tzdata" },
@@ -1083,7 +1083,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=0.41.3" },
     { name = "structlog", specifier = "==24.4.0" },
     { name = "tqdm", specifier = "==4.67.1" },
-    { name = "trino", extras = ["sqlalchemy"], specifier = ">=0.335.0" },
+    { name = "trino", specifier = ">=0.335.0" },
     { name = "typer", specifier = "==0.15.2" },
     { name = "typing-extensions", specifier = "==4.12.2" },
     { name = "tzdata", specifier = "==2024.2" },
@@ -2754,11 +2754,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/52/2f/3b51b7b243a3e03ff89cbedfd8f5a0c7b09f9b8ce6ada6ddf6931637071b/trino-0.335.0.tar.gz", hash = "sha256:b5e6c928953689be8446cbf7dbb87894cbfe54cf099a85cf461c4206c252cd67", size = 55365, upload_time = "2025-06-17T15:22:56.263Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/ea/b678e8fc87a36c003342e15c1f4ef362bdb40c5ff32573c9ec7d47e6e45b/trino-0.335.0-py3-none-any.whl", hash = "sha256:5c96d89d610ab7712ede532d2eb41beb8627339571bceff6134370a8a496f685", size = 57873, upload_time = "2025-06-17T15:22:54.84Z" },
-]
-
-[package.optional-dependencies]
-sqlalchemy = [
-    { name = "sqlalchemy" },
 ]
 
 [[package]]

@@ -13,7 +13,7 @@ import { DB, Flow } from "@/app/lib/types";
 
 import type { paths } from "../api/apegpt/types.gen";
 
-const baseUrl = process.env.APEGPT_API_URL || "http://localhost:8080";
+const baseUrl = process.env.APEGPT_API_URL || "http://web.local";
 
 const client = createClient<paths>({ baseUrl });
 

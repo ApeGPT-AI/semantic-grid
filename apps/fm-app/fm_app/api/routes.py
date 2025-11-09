@@ -22,7 +22,7 @@ from sse_starlette import EventSourceResponse
 from starlette import status
 
 from fm_app.api.auth0 import VerifyGuestToken, VerifyToken
-from fm_app.api.db_session import get_db, wh_engine, wh_session
+from fm_app.api.db_session import get_db, wh_engine
 from fm_app.api.model import (
     AddLinkedRequestModel,
     AddRequestModel,
@@ -94,19 +94,13 @@ def replace_order_by(sql: str, new_order_by: Optional[str]) -> str:
         if matches:
             # Replace only the last one
             last = matches[-1]
-            return (
-                sql[: last.start()]
-                + f"ORDER BY {new_order_by} "
-                + sql[last.end() :]
-            )
+            return sql[: last.start()] + f"ORDER BY {new_order_by} " + sql[last.end() :]
         else:
             # Append new ORDER BY before trailing LIMIT/OFFSET/FETCH
             m = trailing_clause_pattern.search(sql)
             if m:
                 return (
-                    sql[: m.start()]
-                    + f" ORDER BY {new_order_by} "
-                    + sql[m.start() :]
+                    sql[: m.start()] + f" ORDER BY {new_order_by} " + sql[m.start() :]
                 )
             else:
                 return f"{sql} ORDER BY {new_order_by} "
@@ -116,7 +110,7 @@ def replace_order_by(sql: str, new_order_by: Optional[str]) -> str:
         if not matches:
             return sql
         last = matches[-1]
-        return sql[: last.start()] + " " + sql[last.end():]
+        return sql[: last.start()] + " " + sql[last.end() :]
 
 
 # Trailing clauses we want to remove from the *inner* query:
@@ -142,29 +136,30 @@ _TRAILING_LIMIT_OFFSET_FETCH_RE = re.compile(
 # We'll keep only the column piece for the outer query
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
+
 def _strip_leading_comments(sql: str) -> str:
     """
     Strip leading SQL comments (both -- and /* */ style) from the query.
     Used for detecting if a query is a CTE.
     """
-    lines = sql.strip().split('\n')
+    lines = sql.strip().split("\n")
     for i, line in enumerate(lines):
         stripped = line.strip()
         # Skip empty lines and single-line comments
-        if not stripped or stripped.startswith('--'):
+        if not stripped or stripped.startswith("--"):
             continue
         # If we hit a non-comment line, return from here
-        if not stripped.startswith('/*'):
-            return '\n'.join(lines[i:])
+        if not stripped.startswith("/*"):
+            return "\n".join(lines[i:])
         # Handle multi-line comments
-        if '*/' in stripped:
+        if "*/" in stripped:
             # Comment ends on this line, continue to next
             continue
         else:
             # Multi-line comment starts, need to find where it ends
             for j in range(i + 1, len(lines)):
-                if '*/' in lines[j]:
-                    return '\n'.join(lines[j + 1:])
+                if "*/" in lines[j]:
+                    return "\n".join(lines[j + 1 :])
             break
     return sql
 
@@ -176,7 +171,7 @@ def _strip_final_order_by_and_trailing(sql: str, is_cte: bool = False) -> str:
     matches = list(_ORDER_BY_TAIL_RE.finditer(s))
     if matches:
         last = matches[-1]
-        s = s[: last.start()] + s[last.end():]
+        s = s[: last.start()] + s[last.end() :]
 
     # Remove trailing LIMIT/OFFSET/FETCH from the remaining tail
     # The regex uses $ anchor so it only matches at the very end,
@@ -187,13 +182,14 @@ def _strip_final_order_by_and_trailing(sql: str, is_cte: bool = False) -> str:
 
     return s.strip()
 
+
 def _sanitize_sort_by(sort_by: Optional[str]) -> Optional[str]:
     if not sort_by:
         return None
     sb = sort_by.strip()
     # allow quoted accidental inputs like "token"
     is_quoted = (sb.startswith('"') and sb.endswith('"')) or (
-        sb.startswith('`') and sb.endswith('`')
+        sb.startswith("`") and sb.endswith("`")
     )
     if is_quoted:
         sb = sb[1:-1].strip()
@@ -201,6 +197,7 @@ def _sanitize_sort_by(sort_by: Optional[str]) -> Optional[str]:
         return None
     # Use only the last segment (the final SELECT alias)
     return sb.split(".")[-1]
+
 
 def validate_sort_column(
     sort_by: str,
@@ -254,10 +251,7 @@ def validate_sort_column(
 
 
 def _build_cte_pagination_postgres(
-    body: str,
-    sort_by: Optional[str],
-    sort_order: str,
-    include_total_count: bool
+    body: str, sort_by: Optional[str], sort_order: str, include_total_count: bool
 ) -> tuple[str, str]:
     """
     PostgreSQL/MySQL: Support nested CTEs, can wrap WITH inside FROM.
@@ -280,10 +274,7 @@ def _build_cte_pagination_postgres(
 
 
 def _build_cte_pagination_clickhouse(
-    body: str,
-    sort_by: Optional[str],
-    sort_order: str,
-    include_total_count: bool
+    body: str, sort_by: Optional[str], sort_order: str, include_total_count: bool
 ) -> tuple[str, str]:
     """
     ClickHouse/SQLite: Cannot have WITH inside FROM.
@@ -300,10 +291,7 @@ def _build_cte_pagination_clickhouse(
 
 
 def _build_regular_pagination(
-    body: str,
-    sort_by: Optional[str],
-    sort_order: str,
-    include_total_count: bool
+    body: str, sort_by: Optional[str], sort_order: str, include_total_count: bool
 ) -> tuple[str, str]:
     """
     Standard subquery wrapping for non-CTE queries.
@@ -356,7 +344,7 @@ def build_sorted_paginated_sql_gen(
     # Check if query is a CTE before stripping
     # Strip leading comments first to properly detect CTEs
     user_sql_no_comments = _strip_leading_comments(user_sql)
-    starts_with_cte = user_sql_no_comments.strip().upper().startswith('WITH')
+    starts_with_cte = user_sql_no_comments.strip().upper().startswith("WITH")
 
     # Strip ORDER BY and optionally LIMIT/OFFSET
     # For CTE queries, we only strip final ORDER BY, not LIMIT
@@ -366,7 +354,7 @@ def build_sorted_paginated_sql_gen(
     if starts_with_cte:
         dialect = get_cached_warehouse_dialect()
 
-        if dialect in ('postgres', 'postgresql', 'mysql'):
+        if dialect in ("postgres", "postgresql", "mysql"):
             base, order_by_prefix = _build_cte_pagination_postgres(
                 body, sort_by, sort_order, include_total_count
             )
@@ -393,6 +381,7 @@ def build_sorted_paginated_sql_gen(
 
     return base
 
+
 def build_sorted_paginated_sql(
     user_sql: str,
     *,
@@ -411,7 +400,7 @@ def build_sorted_paginated_sql(
         SELECT
           t.*,
           COUNT(*) OVER () AS total_count
-        FROM orig_sql AS t 
+        FROM orig_sql AS t
         {order_clause}
         LIMIT :limit OFFSET :offset;
         """
@@ -422,7 +411,7 @@ def build_sorted_paginated_sql(
         )
         SELECT
           t.*
-        FROM orig_sql AS t 
+        FROM orig_sql AS t
         {order_clause}
         LIMIT :limit OFFSET :offset;
         """
@@ -462,6 +451,7 @@ def compute_etag(payload: dict) -> str:
     """Stable weak ETag from JSON payload."""
     raw = json.dumps(payload, sort_keys=True, default=str)
     return f'W/"{hashlib.sha256(raw.encode()).hexdigest()}"'
+
 
 @api_router.post("/session")
 async def create_session(
@@ -556,6 +546,19 @@ async def create_request(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="No user name"
         )
+
+    # Deterministic command parsing
+    # Check if the request starts with a slash command
+    request_text = user_request.request.strip()
+    if request_text.startswith("/"):
+        command = request_text.split()[0].lower() if request_text else ""
+
+        # Map commands to request types
+        if command in ["/help", "/new"]:
+            # Override request_type to discovery
+            user_request.request_type = InteractiveRequestType.discovery
+            # Keep the original request text so LLM can see the command context
+
     (response, task_id) = await add_request(
         user_owner=user_owner, session_id=session_id, add_req=user_request, db=db
     )
@@ -591,7 +594,6 @@ async def create_request_for_query(
     db: AsyncSession = Depends(get_db),
     auth_result: dict = Depends(verify_any_token),
 ) -> GetRequestModel:
-
     user_owner = auth_result.get("sub")
     if user_owner is None:
         raise HTTPException(
@@ -701,7 +703,7 @@ async def create_request_from_query(
         session_id=session_id,
         add_req=AddRequestModel(
             version=Version.interactive,
-            request="Starting from existing query", # query.request,
+            request="Starting from existing query",  # query.request,
             request_type=InteractiveRequestType.linked_query,
             flow=FlowType.interactive,
             model=(
@@ -713,7 +715,7 @@ async def create_request_from_query(
             refs=None,
             query_id=query_id,  # link to the query
         ),
-        db=db
+        db=db,
     )
     wrk_req = WorkerRequest(
         session_id=session_id,
@@ -725,8 +727,9 @@ async def create_request_from_query(
         status=response.status,
         flow=FlowType.interactive,
         model=(
-            query.ai_context.get(
-                "model") if query.ai_context is not None else ModelType.openai_default
+            query.ai_context.get("model")
+            if query.ai_context is not None
+            else ModelType.openai_default
         ),
         db=DBType.v2,
         refs=None,
@@ -811,7 +814,7 @@ async def create_request_from_sql(
         session_id=session_id,
         add_req=AddRequestModel(
             version=Version.interactive,
-            request=f"Generate query from SQL: {query_data.sql}", # query.request,
+            request=f"Generate query from SQL: {query_data.sql}",  # query.request,
             request_type=InteractiveRequestType.manual_query,
             flow=FlowType.interactive,
             model=(
@@ -823,7 +826,7 @@ async def create_request_from_sql(
             refs=None,
             query_id=None,  # link to the query
         ),
-        db=db
+        db=db,
     )
     wrk_req = WorkerRequest(
         session_id=session_id,
@@ -1183,7 +1186,6 @@ async def get_all_queries(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[GetQueryModel]:
-
     response = await get_queries(db=db, limit=limit, offset=offset)
 
     return response
@@ -1209,9 +1211,7 @@ async def get_query_data(
 
         # Validate sort_by against QueryMetadata columns
         if sort_by:
-            is_valid, result = validate_sort_column(
-                sort_by, query_response.columns
-            )
+            is_valid, result = validate_sort_column(sort_by, query_response.columns)
             if not is_valid:
                 raise HTTPException(status_code=400, detail=result)
             # Use canonical column name from metadata
@@ -1326,7 +1326,7 @@ async def get_query_data(
         sql,
         sort_by=sort_by,
         sort_order=sort_order,
-        include_total_count=True,     # or False if you don't need it
+        include_total_count=True,  # or False if you don't need it
     )
     # print('SQL', combined_sql)
 
@@ -1355,31 +1355,37 @@ async def get_query_data(
                 query_id=query_id,
                 limit=limit,
                 offset=offset,
-                rows=[{k: v for k, v in row.items() if k != "total_count"} for row in
-                      rows],
+                rows=[
+                    {k: v for k, v in row.items() if k != "total_count"} for row in rows
+                ],
                 total_rows=total_count,
             )
 
             # Make a stable ETag
-            etag = compute_etag({
-                "query_id": str(query_id),
-                "limit": limit,
-                "offset": offset,
-                "total_rows": total_count,
-                # Fingerprint first/last row only to avoid huge hashes
-                "rows_fp": hashlib.sha256(
-                    json.dumps({
-                        "first": payload.rows[0] if payload.rows else None,
-                        "last": payload.rows[-1] if payload.rows else None,
-                    }, sort_keys=True, default=str).encode()
-                ).hexdigest(),
-            })
+            etag = compute_etag(
+                {
+                    "query_id": str(query_id),
+                    "limit": limit,
+                    "offset": offset,
+                    "total_rows": total_count,
+                    # Fingerprint first/last row only to avoid huge hashes
+                    "rows_fp": hashlib.sha256(
+                        json.dumps(
+                            {
+                                "first": payload.rows[0] if payload.rows else None,
+                                "last": payload.rows[-1] if payload.rows else None,
+                            },
+                            sort_keys=True,
+                            default=str,
+                        ).encode()
+                    ).hexdigest(),
+                }
+            )
 
             headers = {
                 "ETag": etag,
                 "Cache-Control": (
-                    "public, max-age=0, s-maxage=600, "
-                    "stale-while-revalidate=1200"
+                    "public, max-age=0, s-maxage=600, stale-while-revalidate=1200"
                 ),
                 "Vary": "Authorization, Accept, Accept-Encoding",
             }
@@ -1466,6 +1472,7 @@ async def stream_request_updates(
     session_id_str = str(session_id)
 
     from fm_app.config import get_settings
+
     settings = get_settings()
 
     # Build PostgreSQL connection URL for asyncpg (non-SQLAlchemy)
@@ -1489,7 +1496,7 @@ async def stream_request_updates(
             conn = await asyncpg.connect(db_url)
 
             # Add listener with callback that puts notifications in queue
-            await conn.add_listener('request_update', notification_callback)
+            await conn.add_listener("request_update", notification_callback)
 
             logging.info(
                 "SSE connection established",
@@ -1497,16 +1504,18 @@ async def stream_request_updates(
                     "action": "sse_connect",
                     "session_id": session_id_str,
                     "user": user_owner,
-                }
+                },
             )
 
             # Send initial connection event
             yield {
                 "event": "connected",
-                "data": json.dumps({
-                    "session_id": session_id_str,
-                    "timestamp": asyncio.get_event_loop().time()
-                })
+                "data": json.dumps(
+                    {
+                        "session_id": session_id_str,
+                        "timestamp": asyncio.get_event_loop().time(),
+                    }
+                ),
             }
 
             # Listen for notifications
@@ -1519,7 +1528,7 @@ async def stream_request_updates(
                             "action": "sse_disconnect",
                             "session_id": session_id_str,
                             "user": user_owner,
-                        }
+                        },
                     )
                     break
 
@@ -1529,7 +1538,7 @@ async def stream_request_updates(
                     # to check for disconnections periodically
                     payload_str = await asyncio.wait_for(
                         notify_queue.get(),
-                        timeout=5.0  # Check for disconnections every 5 seconds
+                        timeout=5.0,  # Check for disconnections every 5 seconds
                     )
 
                     # Parse the notification payload
@@ -1544,21 +1553,16 @@ async def stream_request_updates(
                                 "session_id": session_id_str,
                                 "request_id": payload.get("request_id"),
                                 "status": payload.get("status"),
-                            }
+                            },
                         )
 
                         # Send as SSE event
-                        yield {
-                            "event": "request_update",
-                            "data": json.dumps(payload)
-                        }
+                        yield {"event": "request_update", "data": json.dumps(payload)}
 
                 except asyncio.TimeoutError:
                     # No notification received, send keep-alive comment
                     # SSE spec: lines starting with ':' are comments (keep-alive)
-                    yield {
-                        "comment": "keep-alive"
-                    }
+                    yield {"comment": "keep-alive"}
                     continue
 
         except asyncio.CancelledError:
@@ -1567,7 +1571,7 @@ async def stream_request_updates(
                 extra={
                     "action": "sse_cancel",
                     "session_id": session_id_str,
-                }
+                },
             )
             raise
 
@@ -1578,29 +1582,28 @@ async def stream_request_updates(
                     "action": "sse_error",
                     "session_id": session_id_str,
                     "error": str(e),
-                }
+                },
             )
             # Send error event to client
             yield {
                 "event": "error",
-                "data": json.dumps({
-                    "error": "Internal server error",
-                    "session_id": session_id_str
-                })
+                "data": json.dumps(
+                    {"error": "Internal server error", "session_id": session_id_str}
+                ),
             }
 
         finally:
             # Clean up: stop listening and close connection
             if conn is not None:
                 try:
-                    await conn.remove_listener('request_update', notification_callback)
+                    await conn.remove_listener("request_update", notification_callback)
                     await conn.close()
                     logging.info(
                         "SSE connection closed",
                         extra={
                             "action": "sse_close",
                             "session_id": session_id_str,
-                        }
+                        },
                     )
                 except Exception as e:
                     logging.error(
@@ -1608,7 +1611,7 @@ async def stream_request_updates(
                         extra={
                             "action": "sse_close_error",
                             "error": str(e),
-                        }
+                        },
                     )
 
     return EventSourceResponse(event_generator())

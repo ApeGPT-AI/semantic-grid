@@ -25,15 +25,15 @@ from fm_app.api.model import (
 from fm_app.config import get_settings
 from fm_app.db.db import add_request, update_request, update_request_failure
 from fm_app.stopwatch import stopwatch
-from fm_app.workers.agent import close_agent, init_agent
-from fm_app.workers.data_only_flow import data_only_flow
 from fm_app.workers.db_session import get_db
-from fm_app.workers.flex_flow import flex_flow
+from fm_app.workers.experimental.agent import close_agent, init_agent
+from fm_app.workers.experimental.flex_flow import flex_flow
+from fm_app.workers.experimental.langgraph_flow import langgraph_flow
+from fm_app.workers.experimental.mcp_flow import mcp_flow
 from fm_app.workers.interactive_flow import interactive_flow
-from fm_app.workers.langgraph_flow import langgraph_flow
-from fm_app.workers.mcp_flow import mcp_flow
-from fm_app.workers.multistep_flow import multistep_flow
-from fm_app.workers.simple_flow import simple_flow
+from fm_app.workers.legacy.data_only_flow import data_only_flow
+from fm_app.workers.legacy.multistep_flow import multistep_flow
+from fm_app.workers.legacy.simple_flow import simple_flow
 
 settings = get_settings()
 
@@ -65,6 +65,11 @@ LOGGING_CONFIG_NORMAL = {
             "level": "WARNING",
             "propagate": False,
         },
+        "amqp": {
+            "handlers": ["default"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
 LOGGING_CONFIG_JSON = {
@@ -91,6 +96,11 @@ LOGGING_CONFIG_JSON = {
             "propagate": False,
         },
         "celery.worker": {
+            "handlers": ["default"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "amqp": {
             "handlers": ["default"],
             "level": "WARNING",
             "propagate": False,

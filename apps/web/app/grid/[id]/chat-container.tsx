@@ -195,7 +195,7 @@ export const ChatContainer = ({
     // on page load, set requestId to the last one in the sections
     if (sects.length > 0) {
       const lastSection = sects[sects.length - 1];
-      if (lastSection?.requestId) {
+      if (lastSection?.requestId && !requestId) {
         setRequestId(lastSection.requestId);
         // eslint-disable-next-line no-restricted-globals
         history.pushState(null, "", `#${lastSection.requestId}`);
@@ -205,13 +205,15 @@ export const ChatContainer = ({
 
   const handleSectionClick = (section: TChatSection) => {
     console.log("section selected", requestId, section);
-    onSelectColumn({ field: section.id, headerName: section.label });
+
+    // onSelectColumn({ field: section.id, headerName: section.label });
     const el = section.requestId
       ? document.getElementById(section.requestId)
       : null;
     if (el) {
       if (requestId !== section.requestId) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        // disabled scrolling for now
+        // el.scrollIntoView({ behavior: "smooth", block: "start" });
 
         if (section.query) {
           // Update URL fragment without reloading
@@ -319,7 +321,7 @@ export const ChatContainer = ({
       }}
     >
       <Box ref={scrollRef} sx={{ overflowY: "auto" }}>
-        <Box sx={{ flex: 1, pr: 1, pb: 20 }}>
+        <Box sx={{ flex: 1, pr: 1, pb: `calc(${inputHeight}px + 10rem)` }}>
           {sects.map((section: TChatSection, idx: number) => (
             // const isActive = activeColumn?.field === section.id;
             // const isGeneral = section.id === "general";

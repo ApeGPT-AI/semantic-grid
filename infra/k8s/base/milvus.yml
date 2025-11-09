@@ -1,0 +1,236 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: etcd-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: docker-hostpath  # Must match the PVC
+  hostPath:
+    path: "/mnt/data/etcd"  # Ensure this directory exists on the host
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: milvus-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: docker-hostpath
+  hostPath:
+    path: "/mnt/data/milvus"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: minio-pv
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: docker-hostpath
+  hostPath:
+    path: "/mnt/data/minio"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: etcd-pvc
+  namespace: prod
+spec:
+  storageClassName: docker-hostpath  # Renamed from `docker.io/hostpath`
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: prod
+spec:
+  storageClassName: docker-hostpath  # Renamed from `docker.io/hostpath`
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: milvus-pvc
+  namespace: prod
+spec:
+  storageClassName: docker-hostpath  # Renamed from `docker.io/hostpath`
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: prod
+spec:
+  storageClassName: docker-hostpath  # Renamed from `docker.io/hostpath`
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: milvus-pvc
+  namespace: prod
+spec:
+  storageClassName: docker-hostpath  # Renamed from `docker.io/hostpath`
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milvus
+  namespace: prod
+  labels:
+    app: milvus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: milvus
+  template:
+    metadata:
+      labels:
+        app: milvus
+    spec:
+      containers:
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.5.16
+          command: ["etcd", "-advertise-client-urls=http://127.0.0.1:2379", "-listen-client-urls=http://0.0.0.0:2379", "--data-dir=/etcd"]
+          env:
+            - name: ETCD_AUTO_COMPACTION_MODE
+              value: revision
+            - name: ETCD_AUTO_COMPACTION_RETENTION
+              value: '1000'
+            - name: ETCD_QUOTA_BACKEND_BYTES
+              value: '4294967296'
+            - name: ETCD_SNAPSHOT_COUNT
+              value: '50000'
+          ports:
+            - containerPort: 2379
+          volumeMounts:
+            - name: etcd-storage
+              mountPath: /etcd
+
+        - name: minio
+          image: minio/minio:RELEASE.2025-02-18T16-25-55Z-cpuv1
+          command: ["minio", "server", "/minio_data", "--console-address", ":9001"]
+          env:
+              - name: MINIO_ACCESS_KEY
+                value: minioadmin
+              - name: MINIO_SECRET_KEY
+                value: minioadmin
+          ports:
+              - containerPort: 9000
+              - containerPort: 9001
+          volumeMounts:
+              - name: minio-storage
+                mountPath: /minio_data
+
+        - name: milvus
+          image: milvusdb/milvus:v2.5.4
+          command: ["milvus", "run", "standalone"]
+          ports:
+            - containerPort: 19530
+            - containerPort: 9091
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          env:
+            # - name: ETCD_USE_EMBED
+            #  value: "true"   # Enables embedded etcd, avoiding external etcd
+            - name: ETCD_ENDPOINTS
+              value: "etcd-svc:2379"       # Explicitly prevent external etcd connection
+            - name: MINIO_ADDRESS
+              value: "minio-svc:9000"       # Ensure MinIO is not used
+            - name: MILVUS_LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: milvus-storage
+              mountPath: /var/lib/milvus
+
+      volumes:
+        - name: etcd-storage
+          persistentVolumeClaim:
+            claimName: etcd-pvc
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+        - name: milvus-storage
+          persistentVolumeClaim:
+            claimName: milvus-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-svc
+  namespace: prod
+spec:
+  selector:
+    app: milvus
+  ports:
+    - protocol: TCP
+      port: 2379
+      targetPort: 2379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-svc
+  namespace: prod
+spec:
+  selector:
+    app: milvus
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus-svc
+  namespace: prod
+spec:
+  selector:
+    app: milvus
+  ports:
+    - protocol: TCP
+      port: 19530
+      targetPort: 19530
+  type: ClusterIP

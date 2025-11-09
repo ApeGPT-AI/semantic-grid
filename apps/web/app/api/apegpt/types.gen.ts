@@ -623,7 +623,7 @@ export interface components {
          * InteractiveRequestType
          * @enum {string}
          */
-        InteractiveRequestType: "tbd" | "interactive_query" | "data_analysis" | "general_chat" | "disambiguation" | "linked_session" | "linked_query" | "manual_query";
+        InteractiveRequestType: "tbd" | "interactive_query" | "data_analysis" | "general_chat" | "disambiguation" | "linked_session" | "linked_query" | "manual_query" | "discovery";
         /**
          * ModelType
          * @enum {string}
@@ -638,6 +638,8 @@ export interface components {
         };
         /** Refs */
         Refs: {
+            /** Parent */
+            parent?: string | null;
             /** Steps */
             steps?: string[] | null;
             /** Cols */

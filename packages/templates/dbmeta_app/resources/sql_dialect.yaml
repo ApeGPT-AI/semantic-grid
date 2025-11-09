@@ -1,0 +1,97 @@
+# sql_dialect.yaml
+# This file contains SQL dialect instructions for the dbmeta_app.
+version: 1.0.0
+description: SQL dialect instructions for dbmeta_app
+strategy: override
+profiles:
+  wh_v2:
+    - Generated SQL has to be compatible with ClickHouse SQL dialect. 
+    - |
+      The following SQL statements are NOT supported, DO NOT USE:
+      FULL OUTER JOIN, 
+      RIGHT JOIN 
+    
+    - |
+      Do not use LAG() or LEAD() functions. ClickHouse does not support them.
+      Use alternatives such as groupArray() with arrayJoin() and indexing
+      if you need to compare adjacent rows.
+    
+    - |
+      The following functions ARE NOT supported, DO NOT USE: runningDifference, neighbor
+
+    - |
+      When using arrayMap in ClickHouse, ensure all arrays passed in have exactly
+      the same length. If comparing adjacent timestamps, use arrayPopFront()
+      with arrayPopBack() to create two arrays of equal size (length n - 1)
+
+    - |
+      Use arrayJoin() only on actual array columns.
+      Do not use it on scalar columns like Date or String.
+      If you’re joining two tables on a date, use JOIN instead of arrayJoin().
+
+    - |
+      Aggregate functions like avg() operate on scalar columns, not arrays.
+      Do not pass groupArray(...) into avg(). Instead, use avg(column) directly.
+
+    - |
+      Do not pass arrays into dateDiff().
+      It expects two scalar DateTime values. To compare arrays of timestamps,
+      use arrayMap() with aligned arrays (via arrayPopFront / arrayPopBack).
+
+    - |
+      Use only ClickHouse-supported aggregate functions.
+      For standard deviation, use ‘stddevPop’ or ‘stddevSamp’.
+      For collecting arrays of values, use ‘groupArray’ instead of ‘GROUP_ARRAY’.
+
+    - |
+      Do not use subtraction between two DateTime64 values directly.
+      Instead, use ClickHouse functions like dateDiff, toUnixTimestamp,
+      or subtractSeconds to compute differences between timestamps.
+
+    - |
+      Only apply round(x, n) to numeric values like token amounts.
+      Never apply round() to timestamp fields (e.g. ts), as it converts them
+      to Float64 and breaks time functions like dateDiff().
+      For comparing adjacent time differences, use groupArray(ts)
+      combined with arrayPopFront and arrayPopBack, and pass them directly
+      into dateDiff() without any transformation.
+
+    - |
+      Use HAVING only with aggregate expressions.
+      Ensure all non-aggregated columns used in HAVING
+      are either part of GROUP BY or aggregated.
+
+    - |
+      When writing a SELECT query with GROUP BY in ClickHouse, only include:
+      - Columns that are in the GROUP BY clause,
+      - Or columns wrapped in aggregate functions (like SUM, COUNT, groupArray, etc).
+      - Do not include raw columns that are not grouped or aggregated.
+        
+    - |
+      Ensure all columns in SELECT are either inside an aggregate function
+      or listed in the GROUP BY clause. When using array functions like ‘length’,
+      make sure the argument is actually an array.
+        
+    - |
+      Important: ClickHouse does not support referencing columns from the outer query inside scalar subqueries.
+      - BAD: `SELECT ... WHERE (SELECT max(ts) FROM table WHERE column = outer.column)`
+      - GOOD: Use a JOIN or a CTE to bring in the required value from the subquery.
+
+    - |
+      Convert correlated subqueries into JOINs or pre-aggregated CTEs.
+      Use explicit table aliases and avoid referencing outer query columns in scalar subqueries.
+        Bad -- This will fail in ClickHouse!!!:
+          SELECT *
+          FROM transfers rt
+          WHERE (SELECT max(ts) FROM account_token_balance WHERE owner_account = rt.sender_wallet)
+        
+        Good:
+          WITH latest_ts AS (
+          SELECT owner_account, max(ts) AS last_seen
+          FROM account_token_balance
+          GROUP BY owner_account
+          )
+          SELECT *
+          FROM transfers rt
+          JOIN latest_ts ON rt.sender_wallet = latest_ts.owner_account;
+        

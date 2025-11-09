@@ -477,6 +477,12 @@ class PromptAssembler:
             if ov:
                 self.overlay_dirs.append(ov)
 
+        # Add templates directory to search paths if it exists
+        self.template_dirs: List[pathlib.Path] = []
+        templates_root = self.repo_root / "templates" / component
+        if templates_root.exists():
+            self.template_dirs.append(templates_root)
+
         # Precompute effective tree & lineage
         roots_for_includes = [self.system_pack.root] + self.overlay_dirs
         self._include_roots = roots_for_includes
@@ -495,11 +501,12 @@ class PromptAssembler:
 
         self._merged_root = _write_effective_tree_to_tmp(self.tree)
 
-        # 5) Set include roots — merged first
+        # 5) Set include roots — merged first, then templates for reusable components
         self._include_roots = [
             self._merged_root,
             self.system_pack.root,
             *self.overlay_dirs,
+            *self.template_dirs,
         ]
 
         self.lineage_base = {
@@ -511,6 +518,9 @@ class PromptAssembler:
             },
             "overlays": [
                 {"path": str(p), "hash": _dir_hash(p)} for p in self.overlay_dirs
+            ],
+            "templates": [
+                {"path": str(p), "hash": _dir_hash(p)} for p in self.template_dirs
             ],
         }
 
@@ -581,6 +591,7 @@ class PromptAssembler:
         mcp_lineage = []
         frozen_ctx = _freeze(copy.deepcopy(req_ctx))
         for need in self._slot_mcp_requirements(slot):
+            # Debug print removed - caused LogRecord 'name' conflict
             name = need["name"]
             prov = self.async_mcp_registry.get(name)
             if not prov:
@@ -642,9 +653,10 @@ async def try_mcp(req: Dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
-
     # Initialize for fm-app with client overlays
-    repo_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent.parent  # adjust depth
+    repo_root = (
+        pathlib.Path(__file__).resolve().parent.parent.parent.parent.parent
+    )  # adjust depth
     print(repo_root)
     assembler = PromptAssembler(
         repo_root=repo_root,  # containing /prompts and /client-configs

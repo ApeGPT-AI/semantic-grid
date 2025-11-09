@@ -40,13 +40,28 @@ export const ResponseTextStatus = ({
   linkedSession,
   isLoading = false,
   lastMessage = false,
+  requestText,
 }: {
   status?: string;
   rowCount?: number;
   isLoading?: boolean;
   lastMessage?: boolean;
   linkedSession?: string; // whether to show the link icon
+  requestText?: string; // the user's request text
 }) => {
+  // For /new and /help requests, show simple "Working..." instead of stages
+  const isDiscoveryRequest = requestText === "/new" || requestText === "/help";
+
+  if (
+    lastMessage &&
+    isDiscoveryRequest &&
+    status &&
+    status !== "Done" &&
+    status !== "Error" &&
+    status !== "Cancelled"
+  ) {
+    return <PulsingText variant="body2">Working...</PulsingText>;
+  }
   if (
     lastMessage &&
     (status === "Cancelled" || status === "Error" || status === "Done")

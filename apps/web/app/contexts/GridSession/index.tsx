@@ -242,6 +242,45 @@ const withNewMessage =
     },
   ];
 
+const withDoneMessage = (status: TResponseResult) => (ss: TChatSection[]) =>
+  ss.map((s, idx, allS) => ({
+    ...s,
+    query: status.query || s.query,
+    status: idx < allS.length - 1 ? s.status : status.status,
+    chat:
+      // eslint-disable-next-line no-nested-ternary
+      idx < allS.length - 1 || status.response === undefined
+        ? s.chat
+        : s.chat
+          ? [...s.chat.slice(0, s.chat.length - 1), status.response || ""]
+          : [status.response || ""],
+    messages:
+      // eslint-disable-next-line no-nested-ternary
+      idx < allS.length - 1
+        ? s.messages
+        : s.messages
+          ? [
+              ...s.messages.slice(0, s.messages.length - 1),
+              {
+                uid: status.request_id || "pending",
+                text:
+                  s.messages[s.messages.length - 1]?.text ||
+                  status.response ||
+                  "",
+                isBot: true,
+                status: status.status,
+              },
+            ]
+          : [
+              {
+                uid: status.request_id || "pending",
+                text: status.response || "",
+                isBot: true,
+                status: status.status,
+              },
+            ],
+  }));
+
 const withPendingMessage =
   (status: TResponseResult, text: string | undefined) => (ss: TChatSection[]) =>
     ss.map((s, idx, allS) => ({
@@ -419,6 +458,8 @@ export const GridSessionProvider = ({
       ]);
     }
   }, []);
+
+  // /new request is now auto-sent during session creation on the server
 
   useEffect(() => {
     if (chat) {
@@ -711,24 +752,26 @@ export const GridSessionProvider = ({
         activeColumn.field !== "__add_column__" &&
         activeColumn.field !== "general"
           ? [
-              canonical(metadata, activeColumn.field)?.column_name,
-              ...data.map((r) =>
-                r[
-                  canonical(metadata, activeColumn.field)?.column_name
-                ]?.toString(),
+              canonical(query, activeColumn.field)?.column_name,
+              ...data.map(
+                (r) =>
+                  r[
+                    canonical(query, activeColumn.field)?.column_name
+                  ]?.toString() || "",
               ),
             ]
           : undefined,
-      rows: activeRows
-        ? [
-            metadata.columns.map((c: any) => c.column_alias || c.id),
-            ...activeRows
-              .filter(Boolean)
-              .map((r: any) => Object.values(r).slice(1).filter(Boolean)),
-          ]
-        : undefined,
+      rows:
+        activeRows && query
+          ? [
+              query.columns.map((c: any) => c.column_alias || c.id),
+              ...activeRows
+                .filter(Boolean)
+                .map((r: any) => Object.values(r).slice(1).filter(Boolean)),
+            ]
+          : undefined,
     }),
-    [activeColumn, activeRows, data, metadata],
+    [activeColumn, activeRows, data, query],
   );
 
   const context = useMemo(() => {
@@ -808,12 +851,15 @@ export const GridSessionProvider = ({
       latestUpdate?.status === "Error" ||
       latestUpdate?.status === "Canceled"
     ) {
-      fetch(
-        `/api/apegpt/message?sessionId=${sessionId}&seqNum=${latestUpdate.sequence_number}`,
-      )
+      mutate()
+        .then(() =>
+          fetch(
+            `/api/apegpt/message?sessionId=${sessionId}&seqNum=${latestUpdate.sequence_number}`,
+          ),
+        )
         .then((r) => r.json())
         .then((status: TResponseResult) => {
-          setSects(withPendingMessage(status, status.response || ""));
+          setSects(withDoneMessage(status));
         })
         .then((_) => increaseTrialCount())
         .then(() => setPrompt(""))
@@ -845,7 +891,7 @@ export const GridSessionProvider = ({
         refs,
         queryId: query?.query_id,
       }).then((request) => {
-        console.log("request", request);
+        console.log("request", request, "for query", query);
         setSects(withNewMessage(request as any, prompt));
         return request;
       });

@@ -43,8 +43,9 @@ ARG PROJECT_DIR=''
 COPY --from=builder --chown=nobody:nogroup /app /app
 
 ENV PACKS_RESOURCES_DIR=/app/packages
-COPY --chown=nobody:nogroup ${PROJECT_DIR}/packages/resources/ /app/packages/resources/
-COPY --chown=nobody:nogroup ${PROJECT_DIR}/packages/client-configs/ /app/packages/client-configs/
+COPY --chown=nobody:nogroup packages/resources/ /app/packages/resources/
+COPY --chown=nobody:nogroup packages/client-configs/ /app/packages/client-configs/
+COPY --chown=nobody:nogroup packages/templates/ /app/packages/templates/
 
 EXPOSE 8080
 

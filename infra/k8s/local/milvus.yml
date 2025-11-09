@@ -1,0 +1,167 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: etcd-pvc
+  namespace: local
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: local
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: milvus-pvc
+  namespace: local
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milvus
+  namespace: local
+  labels:
+    app: milvus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: milvus
+  template:
+    metadata:
+      labels:
+        app: milvus
+    spec:
+      containers:
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.5.16
+          command:
+            - etcd
+            - -advertise-client-urls=http://127.0.0.1:2379
+            - -listen-client-urls=http://0.0.0.0:2379
+            - --data-dir=/etcd
+          env:
+            - name: ETCD_AUTO_COMPACTION_MODE
+              value: revision
+            - name: ETCD_AUTO_COMPACTION_RETENTION
+              value: '1000'
+            - name: ETCD_QUOTA_BACKEND_BYTES
+              value: '4294967296'
+            - name: ETCD_SNAPSHOT_COUNT
+              value: '50000'
+          ports:
+            - containerPort: 2379
+          volumeMounts:
+            - name: etcd-storage
+              mountPath: /etcd
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              memory: "512Mi"
+
+        - name: minio
+          image: minio/minio:RELEASE.2025-02-18T16-25-55Z-cpuv1
+          command:
+            - minio
+            - server
+            - /minio_data
+            - --console-address
+            - :9001
+          env:
+            - name: MINIO_ACCESS_KEY
+              value: minioadmin
+            - name: MINIO_SECRET_KEY
+              value: minioadmin
+          ports:
+            - containerPort: 9000
+            - containerPort: 9001
+          volumeMounts:
+            - name: minio-storage
+              mountPath: /minio_data
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              memory: "1Gi"
+
+        - name: milvus
+          image: milvusdb/milvus:v2.5.4
+          command:
+            - milvus
+            - run
+            - standalone
+          ports:
+            - containerPort: 19530
+            - containerPort: 9091
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          env:
+            - name: ETCD_ENDPOINTS
+              value: "127.0.0.1:2379"
+            - name: MINIO_ADDRESS
+              value: "127.0.0.1:9000"
+            - name: MILVUS_LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: milvus-storage
+              mountPath: /var/lib/milvus
+
+      volumes:
+        - name: etcd-storage
+          persistentVolumeClaim:
+            claimName: etcd-pvc
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+        - name: milvus-storage
+          persistentVolumeClaim:
+            claimName: milvus-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus
+  namespace: local
+spec:
+  selector:
+    app: milvus
+  ports:
+    - protocol: TCP
+      name: grpc
+      port: 19530
+      targetPort: 19530
+    - protocol: TCP
+      name: metrics
+      port: 9091
+      targetPort: 9091
+  type: ClusterIP

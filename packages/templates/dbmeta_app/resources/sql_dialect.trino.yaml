@@ -1,0 +1,133 @@
+# sql_dialect.trino.yaml
+# This file contains SQL dialect instructions for the dbmeta_app.
+version: 1.0.0
+description: SQL dialect instructions for Trino
+strategy: override
+profiles:
+  wh_v2:
+    - Generated SQL has to be compatible with Trino SQL dialect.
+
+    - |
+      Trino supports FULL OUTER JOIN and RIGHT JOIN.
+      These are valid SQL constructs in Trino.
+
+    - |
+      Trino supports window functions like LAG() and LEAD().
+      Use them with OVER() clause for row-to-row comparisons.
+      Example: LAG(column, 1) OVER (PARTITION BY key ORDER BY ts)
+
+    - |
+      For array manipulation in Trino, use:
+      - transform() instead of arrayMap()
+      - slice() to get array subsets
+      - cardinality() to get array length
+      - unnest() to expand arrays into rows
+
+    - |
+      When using transform() in Trino, the lambda function syntax is:
+      transform(array, x -> expression)
+      Example: transform(prices, x -> x * 1.1)
+
+    - |
+      Use unnest() to expand arrays into rows.
+      Can be used in FROM clause or with CROSS JOIN.
+      Example: SELECT * FROM table CROSS JOIN UNNEST(array_column) AS t(element)
+
+    - |
+      Aggregate functions operate on scalar columns.
+      Do not pass arrays into aggregate functions like avg().
+      Use avg(column) directly on the column.
+
+    - |
+      For date/time differences in Trino, use:
+      - date_diff('unit', timestamp1, timestamp2) for differences
+      - to_unixtime() to convert to Unix timestamp
+      - Common units: 'second', 'minute', 'hour', 'day'
+
+    - |
+      Use only Trino-supported aggregate functions:
+      - For standard deviation: stddev_pop() or stddev_samp()
+      - For collecting arrays: array_agg()
+      - For string concatenation: array_join() or listagg()
+
+    - |
+      Timestamp arithmetic in Trino:
+      - Use INTERVAL for adding/subtracting time: timestamp + INTERVAL '1' DAY
+      - Use date_diff() for calculating differences between timestamps
+      - Do not subtract timestamps directly; use date_diff() instead
+
+    - |
+      Only apply round(x, n) to numeric values.
+      Never apply round() to timestamp fields, as it will cause type errors.
+      For time-based calculations, use appropriate date/time functions.
+
+    - |
+      Use HAVING only with aggregate expressions.
+      Ensure all non-aggregated columns in HAVING are either:
+      - Part of the GROUP BY clause, or
+      - Wrapped in an aggregate function
+
+    - |
+      When writing SELECT with GROUP BY in Trino:
+      - Include only columns that are in GROUP BY, or
+      - Columns wrapped in aggregate functions (SUM, COUNT, array_agg, etc.)
+      - Do not select raw columns that are not grouped or aggregated
+
+    - |
+      Ensure all columns in SELECT are either:
+      - Inside an aggregate function, or
+      - Listed in the GROUP BY clause
+      When using array functions, ensure arguments are actual array types.
+
+    - |
+      Trino supports correlated subqueries, but they can be inefficient.
+      For better performance:
+      - Prefer JOINs over correlated subqueries when possible
+      - Use CTEs (WITH clauses) to pre-aggregate data
+      - Avoid repeated correlated subqueries in SELECT lists
+
+    - |
+      Best practice for subqueries in Trino:
+        Less efficient (but valid):
+          SELECT *
+          FROM transfers rt
+          WHERE sender_wallet IN (
+            SELECT owner_account
+            FROM account_token_balance
+            WHERE ts = (SELECT max(ts) FROM account_token_balance atb2
+                       WHERE atb2.owner_account = account_token_balance.owner_account)
+          )
+
+        More efficient:
+          WITH latest_balance AS (
+            SELECT owner_account, max(ts) AS last_seen
+            FROM account_token_balance
+            GROUP BY owner_account
+          )
+          SELECT rt.*
+          FROM transfers rt
+          JOIN latest_balance lb ON rt.sender_wallet = lb.owner_account
+
+    - |
+      Array indexing in Trino is 1-based (not 0-based).
+      Example: array_column[1] gets the first element.
+
+    - |
+      For conditional expressions, Trino supports:
+      - CASE WHEN ... THEN ... END
+      - COALESCE(value1, value2, ...)
+      - NULLIF(value1, value2)
+      - IF(condition, true_value, false_value)
+
+    - |
+      String operations in Trino:
+      - Use concat() or || operator for concatenation
+      - Use lower(), upper() for case conversion
+      - Use substr() or substring() for string extraction
+      - Use regexp_like(), regexp_extract() for regex operations
+
+    - |
+      Type casting in Trino:
+      - Use CAST(value AS type) or value::type
+      - Common types: VARCHAR, BIGINT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE
+      - Be explicit about decimal precision when needed

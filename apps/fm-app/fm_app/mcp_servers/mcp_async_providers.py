@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from fm_app.mcp_servers.db_meta import (
     db_meta_mcp_analyze_query,
+    get_db_meta_database_overview,
     get_db_meta_mcp_prompt_items,
 )
 from fm_app.mcp_servers.db_ref import get_db_ref_prompt_items
@@ -23,7 +24,17 @@ class DbMetaAsyncProvider:
         req = req_ctx["req"]
         flow_step_num = req_ctx.get("flow_step_num", 0)
 
-        # Call your existing function
+        # For discovery slot, return database overview
+        if slot == "discovery":
+            text = await get_db_meta_database_overview(
+                req=req,
+                flow_step_num=flow_step_num,
+                settings=self.settings,
+                logger=self.logger,
+            )
+            return {"db_overview": text}
+
+        # For other slots, return prompt items
         text = await get_db_meta_mcp_prompt_items(
             req=req,
             flow_step_num=flow_step_num,

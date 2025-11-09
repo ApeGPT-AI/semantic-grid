@@ -39,6 +39,25 @@ export const createSession = async ({ name, tags }: any) => {
   return res;
 };
 
+export const createSessionWithWelcome = async ({ name, tags }: any) => {
+  const session = await createUserSession({ name, tags });
+  if (session) {
+    // Initialize with /new request
+    await createUserRequest({
+      sessionId: session.session_id,
+      request: "/new",
+      requestType: "discovery",
+      flow: "Interactive",
+      model: "OpenAI",
+      db: "V2",
+      refs: null,
+      queryId: null,
+    });
+  }
+  revalidatePath("/query/[id]", "page");
+  return session;
+};
+
 export const createLinkedSession = async ({
   name,
   tags,
