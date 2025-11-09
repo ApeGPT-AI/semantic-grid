@@ -83,19 +83,17 @@ export const ChatContainer = ({
   const [showButton, setShowButton] = useState(false);
   const [inputHeight, setInputHeight] = useState(0);
 
-  // Commented out: Now using /new request for dynamic welcome from backend
-  // const [welcome, setWelcome] = useState<string>("");
-  // useEffect(() => {
-  //   getNewSessionWelcome().then(setWelcome);
-  // }, []);
+  const [welcome, setWelcome] = useState<string>("");
+  useEffect(() => {
+    getNewSessionWelcome().then(setWelcome);
+  }, []);
 
-  // Commented out: Example queries now come from /new welcome message
-  // const [followUps, setFollowUps] = useState<string[]>([]);
-  // useEffect(() => {
-  //   getSuggestedPrompts()
-  //     .then((p) => p.map((p: SuggestedPrompt) => p.text))
-  //     .then(setFollowUps);
-  // }, []);
+  const [followUps, setFollowUps] = useState<string[]>([]);
+  useEffect(() => {
+    getSuggestedPrompts()
+      .then((p) => p.map((p: SuggestedPrompt) => p.text))
+      .then(setFollowUps);
+  }, []);
 
   useEffect(() => {
     const isInternalScroll = hasData;
@@ -196,27 +194,26 @@ export const ChatContainer = ({
   useEffect(() => {
     // on page load, set requestId to the last one in the sections
     if (sects.length > 0) {
-      // find last section with metadata
-      const lastSection = sects.toReversed().find((s) => Boolean(s.query));
-      console.log("last", lastSection, sects);
-      // const lastSection = sects[sects.length - 1];
-      if (lastSection?.requestId) {
+      const lastSection = sects[sects.length - 1];
+      if (lastSection?.requestId && !requestId) {
         setRequestId(lastSection.requestId);
         // eslint-disable-next-line no-restricted-globals
         history.pushState(null, "", `#${lastSection.requestId}`);
       }
     }
-  }, [JSON.stringify(sects)]);
+  }, [sects]);
 
   const handleSectionClick = (section: TChatSection) => {
     console.log("section selected", requestId, section);
-    onSelectColumn({ field: section.id, headerName: section.label });
+
+    // onSelectColumn({ field: section.id, headerName: section.label });
     const el = section.requestId
       ? document.getElementById(section.requestId)
       : null;
     if (el) {
       if (requestId !== section.requestId) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // disabled scrolling for now
+        // el.scrollIntoView({ behavior: "smooth", block: "start" });
 
         if (section.query) {
           // Update URL fragment without reloading
@@ -292,17 +289,15 @@ export const ChatContainer = ({
     return "General";
   };
 
-  const isEmptyChat = useMemo(() => {
-    // Session is empty if no metadata and no sections
-    const hasNoMetadata = !metadata && !pending && !isLoading && !isValidating;
-
-    if (!hasNoMetadata) return false;
-
-    // No sections at all
-    if (sects?.length === 0) return true;
-
-    return false;
-  }, [metadata, pending, isLoading, isValidating, sects]);
+  const isEmptyChat = useMemo(
+    () =>
+      !metadata &&
+      !pending &&
+      !isLoading &&
+      !isValidating &&
+      sects?.length === 0,
+    [metadata, pending, isLoading, isValidating, sects],
+  );
   // console.log("isEmptyChat", isEmptyChat);
 
   return (
@@ -325,19 +320,8 @@ export const ChatContainer = ({
         flexDirection: "column",
       }}
     >
-      <Box
-        ref={scrollRef}
-        sx={{
-          flex: 1,
-          overflowY: "auto",
-        }}
-      >
-        <Box
-          sx={{
-            pr: 1,
-            pb: 20,
-          }}
-        >
+      <Box ref={scrollRef} sx={{ overflowY: "auto" }}>
+        <Box sx={{ flex: 1, pr: 1, pb: `calc(${inputHeight}px + 10rem)` }}>
           {sects.map((section: TChatSection, idx: number) => (
             // const isActive = activeColumn?.field === section.id;
             // const isGeneral = section.id === "general";
@@ -363,104 +347,96 @@ export const ChatContainer = ({
                 onClick={() => handleSectionClick(section)}
               >
                 {section.messages?.map(
-                  (msg: TChatMessage, i: number, arr: TChatMessage[]) => {
-                    // Skip rendering /new user messages completely
-                    if (i % 2 === 0 && msg.text === "/new") {
-                      return null;
-                    }
-
-                    return (
-                      <Box key={`${msg.uid}-${i.toString()}`}>
+                  (msg: TChatMessage, i: number, arr: TChatMessage[]) => (
+                    <Box key={`${msg.uid}-${i.toString()}`}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: i % 2 === 0 ? "end" : "start",
+                        }}
+                      >
                         <Box
                           sx={{
-                            display: "flex",
-                            justifyContent: i % 2 === 0 ? "end" : "start",
+                            borderRadius: "12px",
+                            padding: 2,
+                            bgcolor: getBgColor({ isBot: i % 2 !== 0 }),
+                            width: "fit-content",
+                            display: isVisible(msg.text) ? "block" : "none",
                           }}
                         >
-                          <Box
-                            sx={{
-                              borderRadius: "12px",
-                              padding: 2,
-                              bgcolor: getBgColor({ isBot: i % 2 !== 0 }),
-                              width: "fit-content",
-                              display: isVisible(msg.text) ? "block" : "none",
-                            }}
-                          >
-                            {i % 2 === 0 && (
-                              <Box>
+                          {i % 2 === 0 && (
+                            <Box>
+                              <Typography
+                                variant="body2"
+                                sx={{ width: "fit-content" }}
+                              >
+                                {StructuredText(msg.text || "")}
+                              </Typography>
+                            </Box>
+                          )}
+                          {i % 2 !== 0 && (
+                            <Box
+                              sx={{
+                                marginBottom:
+                                  i === arr.length - 1 &&
+                                  idx === sects.length - 1
+                                    ? 0
+                                    : 0,
+                                maxWidth: "100%",
+                                overflowX: "hidden",
+                                "&  li": {
+                                  marginLeft: "1rem",
+                                },
+                                "& > *": {
+                                  maxWidth: "100%",
+                                  whiteSpace: "normal", // prevents nowrap behavior
+                                },
+                              }}
+                            >
+                              <ResponseTextMessage
+                                text={msg.text}
+                                status={section.status}
+                                linkedSession={section.linkedSession}
+                              />
+                              <ResponseTextStatus
+                                status={section.status}
+                                rowCount={metadata?.row_count}
+                                isLoading={isLoading}
+                                lastMessage={
+                                  i === arr.length - 1 &&
+                                  idx === sects.length - 1
+                                }
+                              />
+                            </Box>
+                          )}
+                          {i % 2 !== 0 &&
+                            section.query &&
+                            Boolean(requestId) &&
+                            section.requestId === requestId && (
+                              <Stack
+                                sx={{ width: "100%", mt: 0 }}
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                                justifyContent="space-between"
+                              >
                                 <Typography
                                   variant="body2"
-                                  sx={{ width: "fit-content" }}
+                                  color="textSecondary"
                                 >
-                                  {StructuredText(msg.text || "")}
+                                  {rows(section.query?.row_count)}
                                 </Typography>
-                              </Box>
+                                <Box>
+                                  <CopyQueryUrl section={section} />
+                                  <ShareQueryUrl section={section} />
+                                  <SaveQueryUrl section={section} />
+                                </Box>
+                              </Stack>
                             )}
-                            {i % 2 !== 0 && (
-                              <Box
-                                sx={{
-                                  marginBottom:
-                                    i === arr.length - 1 &&
-                                    idx === sects.length - 1
-                                      ? 0
-                                      : 0,
-                                  maxWidth: "100%",
-                                  overflowX: "hidden",
-                                  "&  li": {
-                                    marginLeft: "1rem",
-                                  },
-                                  "& > *": {
-                                    maxWidth: "100%",
-                                    whiteSpace: "normal", // prevents nowrap behavior
-                                  },
-                                }}
-                              >
-                                <ResponseTextMessage
-                                  text={msg.text}
-                                  status={section.status}
-                                  linkedSession={section.linkedSession}
-                                />
-                                <ResponseTextStatus
-                                  status={section.status}
-                                  rowCount={metadata?.row_count}
-                                  isLoading={isLoading}
-                                  lastMessage={
-                                    i === arr.length - 1 &&
-                                    idx === sects.length - 1
-                                  }
-                                  requestText={section.messages?.[0]?.text}
-                                />
-                              </Box>
-                            )}
-                            {i % 2 !== 0 &&
-                              section.query &&
-                              Boolean(requestId) &&
-                              section.requestId === requestId && (
-                                <Stack
-                                  sx={{ width: "100%", mt: 0 }}
-                                  direction="row"
-                                  spacing={1}
-                                  alignItems="center"
-                                  justifyContent="space-between"
-                                >
-                                  <Typography
-                                    variant="body2"
-                                    color="textSecondary"
-                                  >
-                                    {rows(section.query?.row_count)}
-                                  </Typography>
-                                  <Box>
-                                    <CopyQueryUrl section={section} />
-                                    <ShareQueryUrl section={section} />
-                                    <SaveQueryUrl section={section} />
-                                  </Box>
-                                </Stack>
-                              )}
-                          </Box>
                         </Box>
                       </Box>
-                    );
-                  },
+                    </Box>
+                  ),
                 )}
               </Box>
             </Box>
@@ -497,7 +473,54 @@ export const ChatContainer = ({
                 justifyContent="space-between"
                 sx={{ px: 2 }}
               >
-                {/* Welcome message and example queries now come from /new request */}
+                {isEmptyChat && (
+                  <Typography variant="body2" color="textSecondary">
+                    {welcome}
+                  </Typography>
+                )}
+                {isEmptyChat &&
+                  followUps.map((f: string) => (
+                    <Box
+                      key={f}
+                      onClick={() => {
+                        setPromptVal(f);
+                        // setVal(f);
+                      }}
+                      sx={{
+                        cursor: "pointer",
+                        // maxWidth: `${100 / (TutorialSteps[Number(step)]?.choices?.length || 1)}%`,
+                        transition: "all 0.2s ease-in-out",
+                        border: `1px solid ${alpha(mode === "dark" ? "#fff" : "#000", 0.5)}`,
+                        "&:hover": {
+                          border: `1px solid ${alpha(mode === "dark" ? "#fff" : "#000", 0.8)}`,
+                        },
+                        borderRadius: "8px",
+                        padding: 2,
+                      }}
+                    >
+                      <Stack direction="column">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            transition: "all 0.2s ease-in-out",
+                            color: alpha(
+                              mode === "dark" ? "#fff" : "#000",
+                              0.5,
+                              // val === f ? 0.8 : 0.5,
+                            ),
+                            "&:hover": {
+                              color: alpha(
+                                mode === "dark" ? "#fff" : "#000",
+                                0.8,
+                              ),
+                            },
+                          }}
+                        >
+                          {f}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  ))}
               </Stack>
               <QueryBox
                 id={id}

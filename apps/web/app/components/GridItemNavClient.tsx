@@ -142,19 +142,6 @@ const GridItemNavClient = ({
           {/* Spacer between primary nav and right-side controls */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* showBanner && (
-            <Box>
-              <Typography
-                color="primary.main"
-                sx={{
-                  animation: `${pulse} 1.5s ease-in-out infinite`,
-                }}
-              >
-                Loading AI Editor...
-              </Typography>
-            </Box>
-          ) */}
-
           <ItemViewSwitcher />
 
           {/* <LabeledSwitch checked /> */}

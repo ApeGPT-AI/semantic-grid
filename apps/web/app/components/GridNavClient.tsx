@@ -14,11 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useContext, useEffect } from "react";
 
-import {
-  createRequestFromQuery,
-  createSession,
-  createSessionWithWelcome,
-} from "@/app/actions";
+import { createRequestFromQuery, createSession } from "@/app/actions";
 import { UserProfileMenu } from "@/app/components/UserProfileMenu";
 import { ThemeContext } from "@/app/contexts/Theme";
 import { useUserSessions } from "@/app/hooks/useUserSessions";
@@ -60,7 +56,7 @@ const GridNavClient = ({
 
   const onSessionFromQuery = async (queryId: string) => {
     try {
-      const session = await createSessionWithWelcome({
+      const session = await createSession({
         name: `from query`,
         tags: "test",
       });
@@ -80,7 +76,7 @@ const GridNavClient = ({
 
   const onNewSession = async () => {
     try {
-      const session = await createSessionWithWelcome({
+      const session = await createSession({
         name: `new query`,
         tags: "test",
       });

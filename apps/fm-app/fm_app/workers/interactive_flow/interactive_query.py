@@ -38,6 +38,7 @@ from fm_app.api.model import (
     UpdateRequestModel,
 )
 from fm_app.db.db import (
+    count_wh_request,
     create_query,
     get_all_requests,
     get_history,
@@ -61,6 +62,7 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
     ai_model = ctx.ai_model
     assembler = ctx.assembler
     db = ctx.db
+    db_wh = ctx.db_wh
     warehouse_dialect = ctx.warehouse_dialect
     flow_step = ctx.flow_step
     request_session = ctx.request_session
@@ -288,21 +290,22 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 continue
 
             # Row count commented out - keep for future use
-            # print(">>> PRE ROW COUNT", stopwatch.lap())
-            # try:
-            #     row_count = count_wh_request(extracted_sql, db_wh)
-            #     new_metadata.update({"row_count": row_count})
-            #     print(">>> POST ROW COUNT", stopwatch.lap())
-            # except Exception as e:
-            #     await update_request_status(
-            #         RequestStatus.error, str(e), db, req.request_id
-            #     )
-            #     logger.info(
-            #         "Error counting rows",
-            #         flow_stage="count_rows_error",
-            #         flow_step_num=next(flow_step),
-            #         error=str(e),
-            #     )
+            print(">>> PRE ROW COUNT", stopwatch.lap())
+            try:
+                row_count = count_wh_request(extracted_sql, db_wh)
+                new_metadata.update({"row_count": row_count})
+                print(">>> POST ROW COUNT", stopwatch.lap())
+
+            except Exception as e:
+                await update_request_status(
+                    RequestStatus.error, str(e), db, req.request_id
+                )
+                logger.info(
+                    "Error counting rows",
+                    flow_stage="count_rows_error",
+                    flow_step_num=next(flow_step),
+                    error=str(e),
+                )
 
             await update_query_metadata(
                 session_id=req.session_id,

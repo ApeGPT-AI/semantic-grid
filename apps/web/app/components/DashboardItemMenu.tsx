@@ -139,7 +139,7 @@ export const DashboardItemMenu = ({
           { label: "sep1", isSeparator: true },
           { label: "Refresh", key: "refresh", icon: <Cached /> },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "Edit with AI", key: "edit", icon: <AutoAwesome /> },
+          { label: "Edit Query", key: "edit", icon: <AutoAwesome /> },
           { label: "Enter Full Screen", key: "item", icon: <Fullscreen /> },
           { label: "Copy URL", key: "url", icon: <ContentCopy /> },
           { label: "Download CSV", key: "csv", icon: <Download /> },
@@ -149,7 +149,7 @@ export const DashboardItemMenu = ({
       : [
           { label: "Refresh", key: "refresh", icon: <Cached /> },
           { label: "Refreshed", key: "refreshed", disabled: true },
-          { label: "Edit with AI", key: "copy", icon: <AutoAwesome /> },
+          { label: "Edit Query", key: "copy", icon: <AutoAwesome /> },
           { label: "Enter Full Screen", key: "item", icon: <Fullscreen /> },
           { label: "Copy URL", key: "url", icon: <ContentCopy /> },
           { label: "Download CSV", key: "csv", icon: <Download /> },

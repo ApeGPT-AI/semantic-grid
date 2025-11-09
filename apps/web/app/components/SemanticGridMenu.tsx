@@ -280,8 +280,8 @@ export const SemanticGridMenu = ({
             </AccordionDetails>
           </Accordion>
         )}
-        <Divider />
-        <MenuItem>About Semantic Grid AI</MenuItem>
+        {/* <Divider />
+        <MenuItem>About Semantic Grid AI</MenuItem> */}
       </Menu>
     </>
   );
