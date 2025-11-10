@@ -22,13 +22,13 @@ async def check_mcp(mcp_server: FastMCP):
     print(
         f"""
         {len(resources)} Resource(s):
-        {', '.join([r.name for r in resources.values()])}
+        {", ".join([r.name for r in resources.values()])}
         """
     )
     print(
         f"""
         {len(templates)} Resource Template(s):
-        {', '.join([t.name for t in templates.values()])}
+        {", ".join([t.name for t in templates.values()])}
         """
     )
 

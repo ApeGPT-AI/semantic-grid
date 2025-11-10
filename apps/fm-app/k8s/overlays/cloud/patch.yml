@@ -12,6 +12,6 @@ spec:
     spec:
       containers:
         - name: fm-app
-          image: '205930631794.dkr.ecr.us-east-1.amazonaws.com/fm_app:9.75'
+          image: "205930631794.dkr.ecr.us-east-1.amazonaws.com/fm_app:9.76"
         - name: fm-app-celery
-          image: '205930631794.dkr.ecr.us-east-1.amazonaws.com/fm_app:9.75'
+          image: "205930631794.dkr.ecr.us-east-1.amazonaws.com/fm_app:9.76"

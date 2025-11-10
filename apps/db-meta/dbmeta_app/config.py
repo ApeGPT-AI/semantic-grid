@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     database_wh_user: Optional[str] = None
     database_wh_pass: Optional[str] = None
-    database_wh_driver: Optional[str] = 'clickhouse+native'
+    database_wh_driver: Optional[str] = "clickhouse+native"
     database_wh_port: Optional[str] = None
     database_wh_port_new: Optional[str] = None
     database_wh_port_v2: Optional[str] = None

@@ -12,4 +12,4 @@ spec:
     spec:
       containers:
         - name: dbmeta-app
-          image: '205930631794.dkr.ecr.us-east-1.amazonaws.com/dbmeta:4.44'
+          image: "205930631794.dkr.ecr.us-east-1.amazonaws.com/dbmeta:4.49"

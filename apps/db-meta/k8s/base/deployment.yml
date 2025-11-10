@@ -13,8 +13,8 @@ spec:
       labels:
         app: dbmeta-app
     spec:
-      imagePullSecrets:
-       - name: gcr-sa-key
+      # imagePullSecrets:
+      #   - name: gcr-sa-key
       containers:
         - name: dbmeta-app
           imagePullPolicy: IfNotPresent
@@ -39,7 +39,7 @@ spec:
       containers:
         - name: dbmeta-etl
           imagePullPolicy: IfNotPresent
-          command: [ "python", "/app/dbmeta_app/etl/load.py" ]
+          command: ["python", "/app/dbmeta_app/etl/load.py"]
           envFrom:
             - configMapRef:
                 name: dbmeta-cfg
@@ -68,26 +68,26 @@ metadata:
   labels:
     app: dbmeta-app
 data:
-  LOG_LEVEL: 'INFO'
-  ROOT_PATH: '/'
-  PORT: '8080'
-  DATABASE_WH_USER: 'wh_ro'
-  DATABASE_WH_PORT: '9000'
-  DATABASE_WH_DRIVER: 'clickhouse+native'
-  DATABASE_WH_PORT_NEW: '9000'
+  LOG_LEVEL: "INFO"
+  ROOT_PATH: "/"
+  PORT: "8080"
+  DATABASE_WH_USER: "wh_ro"
+  DATABASE_WH_PORT: "9000"
+  DATABASE_WH_DRIVER: "clickhouse+native"
+  DATABASE_WH_PORT_NEW: "9000"
   # DATABASE_WH_PORT_V2: '9000'
-  DATABASE_WH_PORT_V2: '9440'
-  DATABASE_WH_DB: 'wh'
-  DATABASE_WH_DB_NEW: 'new_wh'
-  DATABASE_WH_DB_V2: 'wh'
-  DATABASE_WH_PARAMS: '?max_execution_time=120'
-  DATABASE_WH_PARAMS_NEW: '?max_execution_time=120'
-  DATABASE_WH_PARAMS_V2: '?max_execution_time=120&secure=true&verify=false'
+  DATABASE_WH_PORT_V2: "9440"
+  DATABASE_WH_DB: "wh"
+  DATABASE_WH_DB_NEW: "new_wh"
+  DATABASE_WH_DB_V2: "wh"
+  DATABASE_WH_PARAMS: "?max_execution_time=120"
+  DATABASE_WH_PARAMS_NEW: "?max_execution_time=120"
+  DATABASE_WH_PARAMS_V2: "?max_execution_time=120&secure=true&verify=false"
   # DATABASE_WH_PARAMS_V2: '?max_execution_time=120'
-  SCHEMA_DESCRIPTIONS_FILE: './dbmeta_app/schema_descriptions.yaml'
-  QUERY_EXAMPLES_FILE: './dbmeta_app/query_examples.yaml'
-  PROMPT_INSTRUCTIONS_FILE: './dbmeta_app/prompt_instructions.yaml'
-  DATA_EXAMPLES: 'True'
+  SCHEMA_DESCRIPTIONS_FILE: "./dbmeta_app/schema_descriptions.yaml"
+  QUERY_EXAMPLES_FILE: "./dbmeta_app/query_examples.yaml"
+  PROMPT_INSTRUCTIONS_FILE: "./dbmeta_app/prompt_instructions.yaml"
+  DATA_EXAMPLES: "True"
   VECTOR_DB_HOST: "milvus-svc"
   VECTOR_DB_PORT: "19530"
   VECTOR_DB_COLLECTION_NAME: "apegpt_prompts"
@@ -96,6 +96,6 @@ data:
   VECTOR_DB_METRIC_TYPE: "L2"
   # Choose IVF_FLAT, IVF_PQ, or HNSW as needed
   VECTOR_DB_INDEX_TYPE: "HNSW"
-  VECTOR_DB_PARAMS: "{\"nprobe\": 15}"
+  VECTOR_DB_PARAMS: '{"nprobe": 15}'
   ETL_FILE_NAME: "/app/dbmeta_app/query_examples.yaml"
-  PACKS_RESOURCES_DIR: '/app/packages'
+  PACKS_RESOURCES_DIR: "/app/packages"
