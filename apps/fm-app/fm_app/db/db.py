@@ -370,6 +370,7 @@ async def get_request(
             query.updated_at AS query__updated_at,
             query.row_count AS query__row_count,
             query.columns AS query__columns,
+            query.chart AS query__chart,
             query.ai_generated AS query__ai_generated,
             query.ai_context AS query__ai_context,
             query.data_source AS query__data_source,
@@ -441,6 +442,7 @@ async def get_request_by_id(
             query.updated_at AS query__updated_at,
             query.row_count AS query__row_count,
             query.columns AS query__columns,
+            query.chart AS query__chart,
             query.ai_generated AS query__ai_generated,
             query.ai_context AS query__ai_context,
             query.data_source AS query__data_source,
@@ -526,6 +528,7 @@ async def get_all_requests(
             query.updated_at AS query__updated_at,
             query.row_count AS query__row_count,
             query.columns AS query__columns,
+            query.chart AS query__chart,
             query.ai_generated AS query__ai_generated,
             query.ai_context AS query__ai_context,
             query.data_source AS query__data_source,
@@ -1053,13 +1056,14 @@ async def create_query(
     columns_json = (
         json.dumps([col.model_dump() for col in init.columns]) if init.columns else None
     )
+    chart_json = init.chart.model_dump_json() if init.chart else None
 
     add_query_sql = text(
         """
         INSERT
-            INTO query (query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id)
-            VALUES (:query_id, :request, :intent, :summary, :description, :sql, :row_count, :columns, :ai_generated, :ai_context, :data_source, :db_dialect, :explanation, :parent_id)
-            RETURNING query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id;
+            INTO query (query_id, request, intent, summary, description, sql, row_count, columns, chart, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id)
+            VALUES (:query_id, :request, :intent, :summary, :description, :sql, :row_count, :columns, :chart, :ai_generated, :ai_context, :data_source, :db_dialect, :explanation, :parent_id)
+            RETURNING query_id, request, intent, summary, description, sql, row_count, columns, chart, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id;
         """
     )
     query_id = uuid4()
@@ -1075,6 +1079,7 @@ async def create_query(
             "sql": init.sql,
             "row_count": init.row_count,
             "columns": columns_json,
+            "chart": chart_json,
             "ai_generated": init.ai_generated,
             "ai_context": json.dumps(init.ai_context) if init.ai_context else None,
             "data_source": init.data_source,
@@ -1106,12 +1111,18 @@ async def update_query(
             "query": update,
         },
     )
+    chart_json = update.chart.model_dump_json() if update.chart else None
+
     update_query_sql = text(
         """
         UPDATE query
-        SET row_count = :row_count, explanation = :explanation, err = :err, updated_at = now()
+        SET row_count = COALESCE(:row_count, row_count),
+            explanation = COALESCE(:explanation, explanation),
+            chart = COALESCE(:chart, chart),
+            err = COALESCE(:err, err),
+            updated_at = now()
         WHERE query_id = :query_id
-        RETURNING query_id, created_at, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation;
+        RETURNING query_id, created_at, request, intent, summary, description, sql, row_count, columns, chart, ai_generated, ai_context, data_source, db_dialect, explanation;
         """
     )
     res = await db.execute(
@@ -1122,6 +1133,7 @@ async def update_query(
             "explanation": (
                 json.dumps(update.explanation) if update.explanation else None
             ),
+            "chart": chart_json,
             "err": update.err,
         },
     )
@@ -1150,7 +1162,7 @@ async def get_query_by_id(
     )
     get_query_sql = text(
         """
-        SELECT query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id
+        SELECT query_id, request, intent, summary, description, sql, row_count, columns, chart, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id
         FROM query
         WHERE query_id = :query_id;
         """
@@ -1183,7 +1195,7 @@ async def get_queries(
     )
     get_queries_sql = text(
         """
-        SELECT query_id, request, intent, summary, description, sql, row_count, columns, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id
+        SELECT query_id, request, intent, summary, description, sql, row_count, columns, chart, ai_generated, ai_context, data_source, db_dialect, explanation, parent_id
         FROM query
         LIMIT limit = :limit
         OFFSET offset = :offset;

@@ -33,6 +33,19 @@ which uses the following object model:
       Important!: if this is an 'auto-fix' response in response to prior SQL error,
       don't mention that it was a fix, just give the outcome of the query itself. Also, don't shorten wallet names here)
 - **columns**: Optional[list[Column]] -- a list of columns in the query (Column object model is defined below)
+- **chart_suggestion**: Optional[str] -- suggested chart type for visualizing results. Choose based on query intent and structure:
+  - **"line"**: Time series data (GROUP BY date/timestamp + aggregate) - best for trends over time
+  - **"bar"**: Categorical comparisons (GROUP BY category + aggregate) - best for comparing categories
+  - **"pie"**: Part-to-whole relationships (2 columns: category + value, small number of categories <15)
+  - **"table"**: Default for raw data, complex results, or when no specific visualization applies
+  - **"none"**: Single values, counts, or results not suitable for visualization
+  
+  **Selection Guidelines:**
+  - If query has `GROUP BY` on datetime/date column with aggregation (COUNT, SUM, AVG) → suggest "line"
+  - If query has `GROUP BY` on categorical column with aggregation → suggest "bar" (or "pie" if <=15 categories)
+  - If query returns raw records without aggregation → suggest "table"
+  - If query returns single scalar value (e.g., `SELECT COUNT(*)`) → suggest "none"
+  - When in doubt, default to "table"
 
 #### Column Object Model
 

@@ -106,6 +106,20 @@ class View(BaseModel):
     offset: Optional[int] = None
 
 
+class ChartMetadata(BaseModel):
+    """
+    Chart visualization metadata for query results.
+
+    - suggested_chart: LLM's suggested chart type based on query intent
+    - available_charts: Empirically validated chart types based on result structure
+    - chart_config: Optional hints for chart rendering (axis labels, title, etc.)
+    """
+
+    suggested_chart: Optional[str] = None  # "bar", "line", "pie", "table", "none"
+    available_charts: Optional[list[str]] = None  # Validated options
+    chart_config: Optional[dict[str, Any]] = None  # Rendering hints
+
+
 class QueryMetadata(BaseModel):
     id: Optional[UUID] = None
     summary: Optional[str] = None
@@ -117,6 +131,7 @@ class QueryMetadata(BaseModel):
     result: Optional[str] = None
     explanation: Optional[dict[str, Any]] = None
     row_count: Optional[int] = None
+    chart: Optional[ChartMetadata] = None
     refs: Optional[Refs] = None
     view: Optional[View] = None
     description: Optional[str] = None
@@ -230,6 +245,7 @@ class CreateQueryModel(BaseModel):
     sql: Optional[str] = None
     row_count: Optional[int] = None
     columns: Optional[list[Column]] = None
+    chart: Optional[ChartMetadata] = None
     ai_generated: bool = True
     ai_context: Optional[dict[str, Any]] = None
     data_source: Optional[str] = None
@@ -252,6 +268,7 @@ class UpdateQueryModel(BaseModel):
     query_id: UUID
     row_count: Optional[int] = None
     explanation: Optional[dict[str, Any]] = None
+    chart: Optional[ChartMetadata] = None
     err: Optional[str] = None
 
 

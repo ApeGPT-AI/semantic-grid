@@ -70,10 +70,10 @@ const DashboardGrid = ({
             isResizable={false}
             layouts={{
               lg: layout,
-              md: [],
-              sm: [],
-              xs: [],
-              xxs: [],
+              md: layout,
+              sm: layout,
+              xs: layout,
+              xxs: layout,
             }}
             onLayoutChange={onLayoutChange}
           >

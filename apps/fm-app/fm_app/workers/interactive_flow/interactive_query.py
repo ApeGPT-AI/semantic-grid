@@ -296,6 +296,24 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 new_metadata.update({"row_count": row_count})
                 print(">>> POST ROW COUNT", stopwatch.lap())
 
+                # Chart detection: build chart metadata from LLM suggestion + empirical validation
+                from fm_app.utils.chart_detection import build_chart_metadata
+
+                chart_metadata = build_chart_metadata(
+                    columns=llm_response.columns or [],
+                    row_count=row_count,
+                    suggested_chart=new_metadata.get("chart_suggestion"),
+                )
+                new_metadata.update({"chart": chart_metadata.model_dump()})
+
+                logger.info(
+                    "Chart metadata generated",
+                    flow_stage="chart_detection",
+                    flow_step_num=next(flow_step),
+                    suggested_chart=chart_metadata.suggested_chart,
+                    available_charts=chart_metadata.available_charts,
+                )
+
             except Exception as e:
                 await update_request_status(
                     RequestStatus.error, str(e), db, req.request_id
@@ -335,6 +353,7 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 sql=extracted_sql,
                 row_count=new_metadata.get("row_count"),
                 columns=new_metadata.get("columns"),
+                chart=chart_metadata if "chart_metadata" in locals() else None,
                 ai_generated=True,
                 ai_context=None,
                 data_source=req.db,
