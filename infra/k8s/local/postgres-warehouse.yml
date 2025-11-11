@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-wh
+  namespace: local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-wh
+  template:
+    metadata:
+      labels:
+        app: postgres-wh
+    spec:
+      containers:
+        - name: postgres-wh
+          image: postgres:16.4
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "wh_user"
+            - name: POSTGRES_PASSWORD
+              value: "wh_password_123"
+            - name: POSTGRES_DB
+              value: "warehouse"
+          volumeMounts:
+            - name: postgres-wh-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres-wh
+          resources:
+            limits:
+              memory: "1Gi"
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - "-U"
+                - "wh_user"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - "-U"
+                - "wh_user"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: postgres-wh-storage
+          persistentVolumeClaim:
+            claimName: postgres-wh-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-wh-pvc
+  namespace: local
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-wh
+  namespace: local
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: postgres-wh
+  type: ClusterIP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-wh-init
+  namespace: local
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init-schema
+          image: postgres:16.4
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for postgres-wh to be ready..."
+              until pg_isready -h postgres-wh -U wh_user; do
+                sleep 2
+              done
+
+              echo "Loading schema..."
+              psql -h postgres-wh -U wh_user -d warehouse << 'EOF'
+              -- Load schema from mounted file
+              \i /schema/warehouse-schema.sql
+              EOF
+
+              echo "Schema loaded successfully!"
+          env:
+            - name: PGPASSWORD
+              value: "wh_password_123"
+          volumeMounts:
+            - name: schema
+              mountPath: /schema
+      volumes:
+        - name: schema
+          hostPath:
+            path: /Users/lbelyaev/dev/semantic-grid/infra/k8s/local
+            type: Directory
