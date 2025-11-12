@@ -46,3 +46,7 @@ secrets/
 *.egg-info/**/*
 
 test/
+
+apps/web/app/test-errors/
+
+apps/fm-app/examples
