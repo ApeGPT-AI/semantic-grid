@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
-import React, { useContext, useState } from "react";
+import React, { useContext, useRef, useState } from "react";
 
 import {
   addQueryToUserDashboard,
@@ -76,6 +76,7 @@ const ApplicationBar = ({ id }: any) => {
 
   const [anchorEl, setAnchorEl] = useState(null);
   const openMenu = Boolean(anchorEl);
+  const creatingSessionRef = useRef(false);
 
   const toggleTheme = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -116,10 +117,16 @@ const ApplicationBar = ({ id }: any) => {
   };
 
   const onNewChat = async () => {
+    if (creatingSessionRef.current) {
+      console.log("Already creating session, skipping duplicate call");
+      return;
+    }
+
     if (user?.sub) {
+      creatingSessionRef.current = true;
       try {
         const session = await createSession({
-          name: `from query`,
+          name: `Analyzing query...`,
           tags: "test",
         });
         await mutate();
@@ -133,6 +140,8 @@ const ApplicationBar = ({ id }: any) => {
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        creatingSessionRef.current = false;
       }
     }
   };

@@ -407,6 +407,11 @@ export const ChatContainer = ({
                                   i === arr.length - 1 &&
                                   idx === sects.length - 1
                                 }
+                                isLinkedQuery={
+                                  idx === 0 &&
+                                  sects.length === 1 &&
+                                  Boolean(section.query)
+                                }
                               />
                             </Box>
                           )}

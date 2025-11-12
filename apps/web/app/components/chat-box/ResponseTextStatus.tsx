@@ -41,6 +41,7 @@ export const ResponseTextStatus = ({
   isLoading = false,
   lastMessage = false,
   requestText,
+  isLinkedQuery = false,
 }: {
   status?: string;
   rowCount?: number;
@@ -48,9 +49,18 @@ export const ResponseTextStatus = ({
   lastMessage?: boolean;
   linkedSession?: string; // whether to show the link icon
   requestText?: string; // the user's request text
+  isLinkedQuery?: boolean; // whether this is a linked query being summarized
 }) => {
   // For /new and /help requests, show simple "Working..." instead of stages
   const isDiscoveryRequest = requestText === "/new" || requestText === "/help";
+
+  // For linked queries being summarized, show "Summarizing..." instead of stages
+  const isLinkedQuerySummarizing =
+    isLinkedQuery &&
+    status &&
+    status !== "Done" &&
+    status !== "Error" &&
+    status !== "Cancelled";
 
   if (
     lastMessage &&
@@ -61,6 +71,10 @@ export const ResponseTextStatus = ({
     status !== "Cancelled"
   ) {
     return <PulsingText variant="body2">Working...</PulsingText>;
+  }
+
+  if (lastMessage && isLinkedQuerySummarizing) {
+    return <PulsingText variant="body2">Summarizing...</PulsingText>;
   }
   if (
     lastMessage &&

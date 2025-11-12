@@ -123,6 +123,7 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
   const openMenu = Boolean(anchorEl);
 
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const creatingSessionRef = useRef(false);
 
   const handleOpenBc = (e: React.MouseEvent<HTMLElement>) => {
     setBcAnchorEl(e.currentTarget as any);
@@ -175,7 +176,13 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
   };
 
   const onSetNewCurrentChat = async () => {
+    if (creatingSessionRef.current) {
+      console.log("Already creating session, skipping duplicate call");
+      return;
+    }
+
     if (user?.sub) {
+      creatingSessionRef.current = true;
       // use name of last used chat
       const lastUsedName = chatHistory.sort(
         (a: any, b: any) => b.lastUpdated - a.lastUpdated,
@@ -201,14 +208,22 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        creatingSessionRef.current = false;
       }
     }
   };
 
   const onSessionFromQuery = async (queryId: string) => {
+    if (creatingSessionRef.current) {
+      console.log("Already creating session, skipping duplicate call");
+      return;
+    }
+
+    creatingSessionRef.current = true;
     try {
       const session = await createSession({
-        name: `from query`,
+        name: `Analyzing query...`,
         tags: "test",
       });
       await mutate();
@@ -222,6 +237,8 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      creatingSessionRef.current = false;
     }
   };
 
@@ -240,7 +257,9 @@ const ApplicationBar = ({ id, successors = [], ancestors = [] }: any) => {
       const currentId = pathName.split("/query").pop();
       // const current = chatHistory.find((s: TChat) => s.uid === currentId);
       // console.log("Current", currentId);
-      if (!currentId) {
+
+      // Only proceed if we don't have a session ID in the URL and we're not already creating one
+      if (!currentId && !creatingSessionRef.current) {
         if (queryParams.get("q")) {
           console.log("Session from query", queryParams.get("q"));
           onSessionFromQuery(queryParams.get("q")!);

@@ -703,7 +703,7 @@ async def create_request_from_query(
         session_id=session_id,
         add_req=AddRequestModel(
             version=Version.interactive,
-            request="Starting from existing query",  # query.request,
+            request=query.summary or query.intent or "Starting from existing query",
             request_type=InteractiveRequestType.linked_query,
             flow=FlowType.interactive,
             model=(

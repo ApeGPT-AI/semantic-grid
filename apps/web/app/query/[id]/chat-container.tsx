@@ -175,13 +175,27 @@ export const ResponseTextStatus = ({
   linkedSession,
   isLoading = false,
   lastMessage = false,
+  isLinkedQuery = false,
 }: {
   status?: string;
   rowCount?: number;
   isLoading?: boolean;
   lastMessage?: boolean;
+  isLinkedQuery?: boolean;
   linkedSession?: string; // whether to show the link icon
 }) => {
+  // For linked queries being summarized, show "Summarizing..." instead of stages
+  const isLinkedQuerySummarizing =
+    isLinkedQuery &&
+    status &&
+    status !== "Done" &&
+    status !== "Error" &&
+    status !== "Cancelled";
+
+  if (lastMessage && isLinkedQuerySummarizing) {
+    return <PulsingText variant="body2">Summarizing...</PulsingText>;
+  }
+
   if (
     lastMessage &&
     (status === "Cancelled" || status === "Error" || status === "Done")
@@ -588,6 +602,11 @@ export const ChatContainer = ({
                                 lastMessage={
                                   i === arr.length - 1 &&
                                   idx === sects.length - 1
+                                }
+                                isLinkedQuery={
+                                  idx === 0 &&
+                                  sects.length === 1 &&
+                                  Boolean(section.query)
                                 }
                               />
                             </Box>

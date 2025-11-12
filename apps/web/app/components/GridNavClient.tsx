@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 
 import { createRequestFromQuery, createSession } from "@/app/actions";
 import { UserProfileMenu } from "@/app/components/UserProfileMenu";
@@ -46,6 +46,8 @@ const GridNavClient = ({
     isLoading: sessionsAreLoading,
   } = useUserSessions();
 
+  const creatingSessionRef = useRef(false);
+
   const toggleTheme = () => {
     const next = mode === "dark" ? "light" : "dark";
     setMode(next);
@@ -55,9 +57,15 @@ const GridNavClient = ({
   };
 
   const onSessionFromQuery = async (queryId: string) => {
+    if (creatingSessionRef.current) {
+      console.log("Already creating session, skipping duplicate call");
+      return;
+    }
+
+    creatingSessionRef.current = true;
     try {
       const session = await createSession({
-        name: `from query`,
+        name: `Analyzing query...`,
         tags: "test",
       });
       await mutate();
@@ -71,10 +79,18 @@ const GridNavClient = ({
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      creatingSessionRef.current = false;
     }
   };
 
   const onNewSession = async () => {
+    if (creatingSessionRef.current) {
+      console.log("Already creating session, skipping duplicate call");
+      return;
+    }
+
+    creatingSessionRef.current = true;
     try {
       const session = await createSession({
         name: `new query`,
@@ -86,18 +102,26 @@ const GridNavClient = ({
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      creatingSessionRef.current = false;
     }
   };
 
   useEffect(() => {
-    if (queryParams.get("q")) {
-      console.log("Session from query", queryParams.get("q"));
-      onSessionFromQuery(queryParams.get("q")!);
-    } else if (pathname === "/grid") {
-      console.log("No query param");
-      onNewSession();
+    // Only run if we're not already creating a session and we don't have a session ID in the URL
+    const hasSessionInUrl =
+      pathname.includes("/grid/") && pathname.split("/grid/")[1];
+
+    if (!creatingSessionRef.current && !hasSessionInUrl) {
+      if (queryParams.get("q")) {
+        console.log("Session from query", queryParams.get("q"));
+        onSessionFromQuery(queryParams.get("q")!);
+      } else if (pathname === "/grid") {
+        console.log("No query param");
+        onNewSession();
+      }
     }
-  }, [queryParams]);
+  }, [queryParams, pathname]);
 
   const onSaveClick = () => {
     console.log("onSaveClick", dashboardId, uid);
