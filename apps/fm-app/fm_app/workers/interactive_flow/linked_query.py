@@ -12,6 +12,7 @@ from fm_app.api.model import (
 from fm_app.db.db import (
     update_query_metadata,
     update_request_status,
+    update_session_name,
 )
 from fm_app.stopwatch import stopwatch
 from fm_app.workers.interactive_flow.setup import FlowContext
@@ -99,6 +100,9 @@ async def handle_linked_query(ctx: FlowContext) -> None:
     print(">>> POST LINKED QUERY", stopwatch.lap())
     await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
 
+    # Update session name with the summary from intent analysis
+    await update_session_name(req.session_id, req.user, llm_response.summary, db)
+
     if ai_model.get_name() != "gemini":
         messages.append({"role": "assistant", "content": llm_response})
     else:
@@ -108,7 +112,7 @@ async def handle_linked_query(ctx: FlowContext) -> None:
 
     new_metadata_dict = {
         "id": str(uuid.uuid4()),
-        "summary": llm_response.intent,
+        "summary": llm_response.summary,
         "description": llm_response.intent,
         "sql": req.query.sql,
         "columns": [c.model_dump() for c in req.query.columns],

@@ -157,6 +157,7 @@ class StructuredResponse(BaseModel):
 class IntentAnalysis(BaseModel):
     request_type: InteractiveRequestType = InteractiveRequestType.interactive_query
     intent: Optional[str] = None
+    summary: Optional[str] = None
     response: Optional[str] = None
 
 
