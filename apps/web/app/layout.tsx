@@ -6,6 +6,8 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v13-appRouter";
 import Script from "next/script";
 import React from "react";
 
+import ApiErrorHandler from "@/app/components/ApiErrorHandler";
+import GlobalErrorHandler from "@/app/components/GlobalErrorHandler";
 import MuiXLicense from "@/app/components/MuiLicense";
 import { AppProvider } from "@/app/contexts/App";
 import { FlexibleThemeProvider } from "@/app/contexts/Theme";
@@ -42,6 +44,8 @@ const RootLayout = ({ children }: { children: React.ReactElement }) => (
               <AppProvider>
                 {children}
                 <MuiXLicense />
+                <ApiErrorHandler />
+                <GlobalErrorHandler />
               </AppProvider>
             </SWRProvider>
           </UserProvider>
