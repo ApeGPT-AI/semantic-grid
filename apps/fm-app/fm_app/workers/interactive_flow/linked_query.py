@@ -1,6 +1,7 @@
 """Linked query handler - start session from existing query."""
 
 import uuid
+from datetime import datetime
 
 from fm_app.api.model import (
     IntentAnalysis,
@@ -40,7 +41,7 @@ async def handle_linked_query(ctx: FlowContext) -> None:
         "client_id": settings.client_id,
         "intent_hint": intent_hint,
         "query_metadata": query_metadata_instruction,
-        "current_datetime": req.created_at or req.updated_at,
+        "current_datetime": datetime.now().replace(microsecond=0),
     }
 
     await update_request_status(RequestStatus.new, None, db, req.request_id)

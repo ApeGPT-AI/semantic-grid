@@ -1,5 +1,6 @@
 """Manual query handler - user provides raw SQL."""
 
+from datetime import datetime
 
 from fm_app.api.model import (
     CreateQueryModel,
@@ -36,7 +37,7 @@ async def handle_manual_query(ctx: FlowContext) -> None:
     manual_query_vars = {
         "client_id": settings.client_id,
         "request": req.request,
-        "current_datetime": req.created_at or req.updated_at,
+        "current_datetime": datetime.now().replace(microsecond=0),
     }
 
     await update_request_status(RequestStatus.new, None, db, req.request_id)
