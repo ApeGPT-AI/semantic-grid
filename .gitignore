@@ -44,3 +44,5 @@ secrets/
 *.egg
 *.egg-info
 *.egg-info/**/*
+
+test/
