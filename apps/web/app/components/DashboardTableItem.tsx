@@ -1,5 +1,6 @@
 "use client";
 
+import { Box, Typography } from "@mui/material";
 import { DataGridPro, type GridColDef } from "@mui/x-data-grid-pro";
 import React, { useMemo } from "react";
 
@@ -85,22 +86,23 @@ export const DashboardTableItem = ({
     return [...userColumns];
   }, [query]);
 
-  const rows = useMemo(
-    () =>
-      (data?.rows || []).map((row: Record<string, any>, idx: number) => ({
-        id: idx, // Use index as ID
-        ...Object.values(row)
-          .slice(0)
-          .reduce((acc, val, idx) => {
-            const col = gridColumns[idx];
-            if (col) {
-              acc[col.field] = val || ""; // Map cell to column field
-            }
-            return acc;
-          }, {}),
-      })),
-    [data, gridColumns],
-  );
+  const rows = useMemo(() => {
+    if (!data?.rows || data.rows.length === 0) {
+      return [];
+    }
+    return data.rows.map((row: Record<string, any>, idx: number) => ({
+      id: idx, // Use index as ID
+      ...Object.values(row)
+        .slice(0)
+        .reduce((acc, val, idx) => {
+          const col = gridColumns[idx];
+          if (col) {
+            acc[col.field] = val || ""; // Map cell to column field
+          }
+          return acc;
+        }, {}),
+    }));
+  }, [data, gridColumns]);
 
   return (
     <DataGridPro
@@ -109,9 +111,53 @@ export const DashboardTableItem = ({
       // rowCount={rowCount}
       columns={gridColumns}
       loading={isLoading || queryObjectIsLoading || isRefreshing} // isLoading ? true : false
+      hideFooterPagination
+      slots={{
+        noRowsOverlay: () => (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              No data available
+            </Typography>
+          </Box>
+        ),
+        noResultsOverlay: () => (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              No results found
+            </Typography>
+          </Box>
+        ),
+      }}
       sx={{
+        minHeight: minHeight,
+        height: minHeight,
         border: "none", // remove outer border
         fontSize: "1rem",
+        "& .MuiDataGrid-overlay": {
+          zIndex: 1,
+        },
         "& .highlight-column": {
           backgroundColor: "rgba(255, 165, 0, 0.1)",
         },

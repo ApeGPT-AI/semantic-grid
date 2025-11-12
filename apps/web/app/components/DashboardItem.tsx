@@ -83,7 +83,12 @@ const DashboardCard = ({
         }
       }
     >
-      <CardActionArea component={href ? Link : "div"} href={href} sx={{ p: 2 }}>
+      <CardActionArea
+        component={href ? Link : "div"}
+        href={href}
+        sx={{ p: 2 }}
+        disableRipple
+      >
         <CardContent>
           <Stack spacing={1} justifyContent="center">
             {type !== "create" && (
