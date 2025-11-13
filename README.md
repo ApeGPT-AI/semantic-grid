@@ -1,44 +1,38 @@
 ## TL;DR
 
-Semantic Grid is an open-source interface that lets users explore complex crypto datasets using natural language — no SQL or rigid filters required. Instead of pre-built dashboards with fixed views, users describe what they want to see. The system builds live, interactive tables in response.
+Semantic Grid is an open-source interface that lets users explore complex datasets using natural language — no SQL or rigid filters required. Instead of pre-built dashboards with fixed views, users describe what they want to see. The system builds live, interactive tables in response.
 
 [![Semantic Grid UI](docs/semantic-grid-UI.png)](https://semanticgrid.ai)
 
-## Built for Crypto Analytics Teams
+## Built for Analytics Teams
 
-Today’s dashboards are like storefronts: users must browse aisles of charts hoping to find what they need. But the number of ways people want to slice and explore on-chain data is endless. Semantic Grid puts users in control, making your data searchable, interactive, and composable — just like search engines revolutionized e-commerce. If you’re building:
+Most BI tools bury business users under hundreds of dashboards yet still fail to deliver clear answers. As a result, users constantly ping data teams to tweak or rebuild dashboards. It’s no surprise — business needs change, data priorities shift, and there are infinite ways to slice information.
 
-- Wallet- or protocol-centric dashboards  
-- DEX or NFT analytics  
-- Revenue breakdowns or fee explorers  
-- Airdrop or grant eligibility screens  
-
-Semantic Grid is the frontend layer that makes your data self-service and natural-language-query enabled, right from the table UI.
+Semantic Grid integrates with existing BI tools (like Superset, Tableau, and Looker) but empowers business users to instantly create or fork dashboards, visualize data in tables, and generate new, derivative versions using simple natural language.
 
 ## How It Works
 
-1. **Query by prompt**  
-   “Show all wallets that sold TRUMP token on Jupiter yesterday”  
+1. **Start with existing chart or create brand new prompt**  
+   “Show me all new subscribers we got yesterday”  
 
-2. **Data rendered as a live table**  
-   Automatically generated via SQL under the hood  
+2. **Click [Edit with AI] to enter Semantic Edit mode**  
+   Data behind chart is represented in tabular format  
 
-3. **Composable, interactive editing**  
-   “Add column for destination token”  
-   “Show all tokens held by this wallet”  
+3. **Iterate on tabular data using natural langague prompts to get to the desired view**  
+   Pass context by highlighting rows, columns and cells
+   Prompts, queries, and tables are versioned and sharable 
 
-4. **Stateful history & sharing**  
-   Prompts, queries, and tables are versioned and sharable  
-
-## Try It Live
-
-*[Solana DEX Explorer (Demo)](https://semanticgrid.ai)*  
+4. **Save desired view as new chart that you can always come back to**
+   Aggregate forked charts into own, custom dashboards 
+     
+  
 *[Watch Demo Video](https://youtu.be/5ySluirKR_M)*
 
 
 ## Getting Started
 
 - [Read the Docs](docs/systems-architecture.md)
+- *[Watch Demo Video](https://youtu.be/5ySluirKR_M)*
 - [Join Discord](https://discord.gg/9bsR6sU7JQ)
 - Deploy using Helm (bring your own compute)
 - Plug in your foundation model (OpenAI, local models, etc.)
