@@ -443,7 +443,7 @@ def build_sorted_paginated_sql(
           (SELECT COUNT(*) FROM ({user_sql}) AS count_subquery) AS total_count
         FROM ({user_sql}) AS t
         {order_clause}
-        LIMIT :limit OFFSET :offset
+        OFFSET :offset LIMIT :limit
         """
         else:
             # ClickHouse/Postgres: Window function is efficient
@@ -461,13 +461,22 @@ def build_sorted_paginated_sql(
         """
     else:
         # Simple pagination without count
-        return f"""
-        SELECT
-          t.*
-        FROM ({user_sql}) AS t
-        {order_clause}
-        LIMIT :limit OFFSET :offset
-        """
+        if dialect == "trino":
+            return f"""
+            SELECT
+            t.*
+            FROM ({user_sql}) AS t
+            {order_clause}
+            OFFSET :offset LIMIT :limit
+            """
+        else:
+            return f"""
+            SELECT
+            t.*
+            FROM ({user_sql}) AS t
+            {order_clause}
+            LIMIT :limit OFFSET :offset
+            """
 
 
 async def verify_any_token(
