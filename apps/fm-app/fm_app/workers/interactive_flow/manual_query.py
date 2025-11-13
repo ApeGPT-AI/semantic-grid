@@ -75,7 +75,6 @@ async def handle_manual_query(ctx: FlowContext) -> None:
         ai_request=messages,
     )
 
-    print(">>> PRE MANUAL QUERY", stopwatch.lap())
     await update_request_status(RequestStatus.sql, None, db, req.request_id)
 
     try:
@@ -94,7 +93,6 @@ async def handle_manual_query(ctx: FlowContext) -> None:
         await update_request_status(RequestStatus.error, req.err, db, req.request_id)
         return
 
-    print(">>> POST MANUAL QUERY", stopwatch.lap())
     await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
 
     if ai_model.get_name() != "gemini":
@@ -136,13 +134,11 @@ async def handle_manual_query(ctx: FlowContext) -> None:
             extracted_sql=extracted_sql,
         )
 
-        print(">>> PRE ANALYZE", stopwatch.lap())
 
         analyzed = await db_meta_mcp_analyze_query(
             req, extracted_sql, 5, settings, logger
         )
 
-        print(">>> POST ANALYZE", stopwatch.lap())
 
         if analyzed.get("explanation"):
             explanation = analyzed.get("explanation")[0]
@@ -229,4 +225,3 @@ async def handle_manual_query(ctx: FlowContext) -> None:
             refs=req.refs,
         )
 
-        print(">>> DONE MANUAL QUERY", stopwatch.lap())

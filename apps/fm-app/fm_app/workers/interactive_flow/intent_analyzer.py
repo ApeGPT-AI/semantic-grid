@@ -86,7 +86,6 @@ async def analyze_intent(ctx: FlowContext) -> IntentAnalysis:
         ai_request=messages,
     )
 
-    print(">>> PRE INTENT", stopwatch.lap())
 
     try:
         llm_response = ai_model.get_structured(
@@ -104,7 +103,6 @@ async def analyze_intent(ctx: FlowContext) -> IntentAnalysis:
         await update_request_status(RequestStatus.error, req.err, db, req.request_id)
         raise
 
-    print(">>> POST INTENT", stopwatch.lap())
 
     if ai_model.get_name() != "gemini":
         messages.append({"role": "assistant", "content": llm_response})

@@ -48,8 +48,9 @@ async def get_db_meta_mcp_prompt_items(
                     }
                 },
             )
-            # print("prompts", prompts[0].text)
-            print("prompts", db, bool(prompts[0].text))
+            logger.debug(
+                f"Got prompts for db={db}, has_content={bool(prompts[0].text)}"
+            )
 
         except Exception as e:
             logger.error(
@@ -79,7 +80,9 @@ async def db_meta_mcp_analyze_query(
                     }
                 },
             )
-            print("preflight", db, bool(prompts[0].text))
+            logger.debug(
+                f"Preflight check for db={db}, has_content={bool(prompts[0].text)}"
+            )
 
         except Exception as e:
             logger.error(
@@ -117,8 +120,6 @@ async def get_db_meta_database_overview(
                 },
             )
             overview_text = result[0].text
-            print(f">>> DATABASE_OVERVIEW mode={mode} len={len(overview_text)}")
-            print(f">>> OVERVIEW_PREVIEW: {overview_text[:500]}")
             logger.info(
                 "Got database overview",
                 flow_stage="discovery_overview",

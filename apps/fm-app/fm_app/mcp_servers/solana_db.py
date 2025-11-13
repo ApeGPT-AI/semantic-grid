@@ -214,7 +214,6 @@ if __name__ == "__main__":
 
     # Basic run with default settings (stdio transport)
     mcp.run()
-    print(f"MCP server {mcp.name} running")
 
     # Or with specific transport and parameters
     # mcp.run(transport="sse", host="127.0.0.1", port=9000)

@@ -18,14 +18,11 @@ async def check_mcp(mcp_server: FastMCP):
     tools = await mcp_server.get_tools()
     resources = await mcp_server.get_resources()
     templates = await mcp_server.get_resource_templates()
-    print(f"{len(tools)} Tool(s): {', '.join([t.name for t in tools.values()])}")
-    print(
         f"""
         {len(resources)} Resource(s):
         {", ".join([r.name for r in resources.values()])}
         """
     )
-    print(
         f"""
         {len(templates)} Resource Template(s):
         {", ".join([t.name for t in templates.values()])}
@@ -45,7 +42,6 @@ async def check_mcp(mcp_server: FastMCP):
                     }
                 },
             )
-            print("prompts", prompts[0].text)
             preflight: Any = await client.call_tool(
                 "preflight_query",
                 {
@@ -55,10 +51,8 @@ async def check_mcp(mcp_server: FastMCP):
                     }
                 },
             )
-            print("preflight", preflight[0].text)
 
         except Exception as e:
-            print(f"Error reading resource: {e}")
 
     return mcp_server
 

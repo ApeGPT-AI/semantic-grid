@@ -18,9 +18,7 @@ class QueryExample(BaseModel):
 
 
 # load_dotenv()
-print(os.getenv("VECTOR_DB_EMBEDDINGS"))
 settings = get_settings()
-print(settings.vector_db_embeddings)
 
 
 def get_embedding(text: str, model: str = settings.vector_db_embeddings) -> list[float]:
@@ -42,14 +40,12 @@ elif settings.vector_db_connection_string is not None:
     # connections.connect(alias="default", uri="sqlite:///:memory:")
     # Uses in-memory SQLite for testing
 else:
-    print("No Milvus connection information found. Please set it in the environment.")
     exit(1)
 
 
 collection_name = settings.vector_db_collection_name
 
 if collection_name not in pymilvus.utility.list_collections():
-    print(f"Collection {collection_name} not found.")
     exit(1)
 else:
     collection = Collection(collection_name)
@@ -57,7 +53,6 @@ else:
 
 utility.wait_for_loading_complete(collection_name)
 assert utility.load_state(collection_name) == LoadState.Loaded
-print(f"Collection {collection_name} loaded")
 
 
 def normalize_vector(vector):
@@ -66,7 +61,6 @@ def normalize_vector(vector):
 
 
 def get_hits(query: str, db: str, top_k=3) -> list[QueryExample]:
-    print(f"Searching for: {query} in {collection_name} of {db}")
     query_embedding = get_embedding(query)
     if utility.load_state(collection_name) != LoadState.Loaded:
         collection.load()  # Ensure collection is loaded before querying

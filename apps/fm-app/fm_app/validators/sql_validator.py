@@ -158,11 +158,6 @@ if __name__ == "__main__":
     ]
 
     for sql, description, expected_valid in test_cases:
-        print(f"\n{description}:")
-        print(f"SQL: {sql[:60]}...")
         result = validate_sql_syntax(sql, strict=False)
-        print(f"Valid: {result.valid} (expected: {expected_valid})")
         if result.error:
-            print(f"Error: {result.error}")
         if result.warning:
-            print(f"Warning: {result.warning}")

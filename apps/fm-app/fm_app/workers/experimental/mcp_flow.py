@@ -96,7 +96,6 @@ def log_handler(params: LogMessage):
 
 
 db_client = Client(server_script, log_handler=log_handler)
-print(db_client.transport)
 
 
 async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
@@ -108,14 +107,12 @@ async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
 
     req.structured_response = StructuredResponse()
     ts = datetime.datetime.now()
-    print("\n\nSTART:", req.request, "\n\n")
 
     # await get_db_meta_mcp_prompt_items(req, 0, settings, logger)
     dbref_prompts = get_db_ref_prompt_items(req, 0, settings, logger)
     db_name = get_db_name(req)
 
     ts1 = datetime.datetime.now()
-    print("\n\nDBREF:", ts1 - ts, "\n\n")
 
     instructions = f"""
        {expertise_prefix}\n
@@ -142,7 +139,6 @@ async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
 
         sql_res = await Runner.run(starting_agent=agent, input=req.request)
         ts2 = datetime.datetime.now()
-        print("\n\nSQL:", ts2 - ts1, "\n\n")
 
         if sql_res.final_output is None or sql_res.final_output.sql is None:
             req.status = RequestStatus.error
@@ -165,7 +161,6 @@ async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
                 )
                 data = json.loads(result[0].text)
                 ts3 = datetime.datetime.now()
-                print("\n\nDATA:", ts3 - ts2, "\n\n")
                 if "error" in data:
                     req.status = RequestStatus.error
                     req.err = data["error"]
@@ -174,17 +169,14 @@ async def mcp_flow(req: WorkerRequest, ai_model: Type[AIModel]):
                 req.structured_response.csv = data["csv"]
 
             except ClientError as e:
-                print(f"Tool call failed: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req
             except ConnectionError as e:
-                print(f"Connection failed: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req
             except Exception as e:
-                print(f"An unexpected error occurred: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req

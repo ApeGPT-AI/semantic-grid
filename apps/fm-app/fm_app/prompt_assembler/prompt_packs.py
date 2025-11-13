@@ -648,8 +648,6 @@ async def try_mcp(req: Dict[str, Any]) -> None:
         req_ctx=req_ctx,
         mcp_caps={"sql_dialect": "clickhouse", "cost_tier": "standard"},
     )
-    print(_slot.prompt_text)
-    print(_slot.lineage.get("mcp"))
 
 
 if __name__ == "__main__":

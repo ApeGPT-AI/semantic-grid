@@ -119,14 +119,11 @@ class OpenAIModel(AIModel):
             model=model_name,
             messages=messages,
             response_format={"type": "json_object"},
-            extra_headers={
-                "OpenAI-Beta": "prompt-caching"
-            }
+            extra_headers={"OpenAI-Beta": "prompt-caching"},
         )
         data = json.loads(
             resp.choices[0].message.content, object_hook=fix_nulls_and_convert_rows
         )
-        print("LLM OUT", model_name, temperature, data)
         return step(**data)
 
 
@@ -301,8 +298,6 @@ class AnthropicModel(AIModel):
             else:
                 filtered_messages.append(msg)
 
-        print("system_instruction", len(system_instruction))
-        print("messages", len(filtered_messages))
         content = ""
         model_name = model_override or AnthropicModel.llm_name
 
@@ -319,17 +314,15 @@ class AnthropicModel(AIModel):
                         delta = clean(event)
                         content += delta
                     except Exception as e:
-                        print("Error in streaming:", e)
+                        pass
 
             content = fix_multiline_strings(content)
             if content == "":
-                print("Empty response from Anthropic")
                 return InvestigationStep()
             data = json.loads(content, object_hook=fix_nulls_and_convert_rows)
             return InvestigationStep(**data)
 
         except Exception as e:
-            print("Error in get_structured:", e)
             return InvestigationStep()
 
     @staticmethod

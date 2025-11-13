@@ -49,7 +49,6 @@ async def handle_discovery(ctx: FlowContext) -> None:
 
     # For /new: return deterministic response from db-meta without LLM
     if mode == "new":
-        print(">>> PRE DISCOVERY (non-LLM)", stopwatch.lap())
 
         # Get database overview directly from MCP (skip slot rendering for speed)
         logger.info(
@@ -112,7 +111,6 @@ async def handle_discovery(ctx: FlowContext) -> None:
             ai_request=messages,
         )
 
-        print(">>> PRE DISCOVERY (LLM)", stopwatch.lap())
         await update_request_status(RequestStatus.intent, None, db, req.request_id)
 
         try:
@@ -133,7 +131,6 @@ async def handle_discovery(ctx: FlowContext) -> None:
             )
             return
 
-        print(">>> POST DISCOVERY (LLM)", stopwatch.lap())
         await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
 
         response_text = llm_response.intent
@@ -160,4 +157,3 @@ async def handle_discovery(ctx: FlowContext) -> None:
         refs=None,
     )
 
-    print(">>> DONE DISCOVERY", stopwatch.lap())

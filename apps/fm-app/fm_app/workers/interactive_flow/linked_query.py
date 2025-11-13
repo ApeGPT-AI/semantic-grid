@@ -79,7 +79,6 @@ async def handle_linked_query(ctx: FlowContext) -> None:
         ai_request=messages,
     )
 
-    print(">>> PRE LINKED QUERY", stopwatch.lap())
     await update_request_status(RequestStatus.intent, None, db, req.request_id)
 
     try:
@@ -98,7 +97,6 @@ async def handle_linked_query(ctx: FlowContext) -> None:
         await update_request_status(RequestStatus.error, req.err, db, req.request_id)
         return
 
-    print(">>> POST LINKED QUERY", stopwatch.lap())
     await update_request_status(RequestStatus.finalizing, None, db, req.request_id)
 
     # Update session name with the summary from intent analysis
@@ -147,4 +145,3 @@ async def handle_linked_query(ctx: FlowContext) -> None:
         refs=None,
     )
 
-    print(">>> DONE LINKED QUERY", stopwatch.lap())

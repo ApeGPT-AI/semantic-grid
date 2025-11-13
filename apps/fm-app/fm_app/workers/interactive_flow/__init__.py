@@ -30,7 +30,6 @@ async def interactive_flow(
     - linked_query: Summarize existing query for new session
     - Other types: Analyze intent first, then route to specific handler
     """
-    print(">>> FLOW START", stopwatch.lap())
 
     # Initialize shared context
     ctx = await initialize_flow(req, ai_model, db_wh, db)

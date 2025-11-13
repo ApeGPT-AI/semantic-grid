@@ -99,7 +99,6 @@ def log_handler(params: LogMessage):
 
 
 db_client = Client(server_script, log_handler=log_handler)
-print(db_client.transport)
 
 
 async def mcp_flow(
@@ -113,7 +112,6 @@ async def mcp_flow(
 
     req.structured_response = StructuredResponse()
     ts = datetime.datetime.now()
-    print("\n\nSTART:", req.request, "\n\n")
 
     dbref_prompts = get_db_ref_prompt_items(req, 0, settings, logger)
     db_name = get_db_name(req)
@@ -133,7 +131,6 @@ async def mcp_flow(
     ]
 
     (server, agent) = await init_agent()
-    print("\n\nDBREF:", ts1 - ts, bool(agent), messages, "\n\n")
 
     model_settings = ModelSettings(temperature=0, parallel_tool_calls=True)
     run_config = RunConfig(
@@ -145,7 +142,6 @@ async def mcp_flow(
             starting_agent=agent, input=list(messages), run_config=run_config
         )
         ts2 = datetime.datetime.now()
-        print("\n\nSQL:", ts2 - ts1, "\n\n")
 
         if (
             sql_res is None
@@ -170,10 +166,8 @@ async def mcp_flow(
                         "settings": settings,
                     },
                 )
-                print(result)
                 data = json.loads(result[0].text)
                 ts3 = datetime.datetime.now()
-                print(
                     "\n\nDATA:",
                     ts3 - ts2,
                     bool(data["csv"]),
@@ -188,17 +182,14 @@ async def mcp_flow(
                 req.structured_response.csv = data["csv"]
 
             except ClientError as e:
-                print(f"Tool call failed: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req
             except ConnectionError as e:
-                print(f"Connection failed: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req
             except Exception as e:
-                print(f"An unexpected error occurred: {e}")
                 req.status = RequestStatus.error
                 req.err = str(e)
                 return req

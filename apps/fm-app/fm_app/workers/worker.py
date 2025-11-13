@@ -373,8 +373,6 @@ async def _wrk_add_request(args):
                     flow_step_num=10000,
                 )
 
-                print(">>> DONE", stopwatch.lap())
-
                 status = (
                     RequestStatus.done
                     if request.status != RequestStatus.error

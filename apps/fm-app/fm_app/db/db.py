@@ -496,7 +496,6 @@ async def get_schema(db: AsyncSession):
     )
     res = await db.execute(get_schema_sql)
     for row in res.fetchall():
-        print(row)
 
 
 async def get_all_requests(

@@ -30,5 +30,4 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    print("shutting down fm_app")
     await engine.dispose()

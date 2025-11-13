@@ -50,7 +50,6 @@ def load_query_examples():
     file = load_yaml(tree, "resources/query_examples.yaml")
     data = file["profiles"][profile]["examples"]
     examples = []
-    print(f"loaded {len(data)} examples")
     for row in data:
         request = row.get("request", "").strip()
         response = row.get("response", "").strip()
@@ -79,7 +78,6 @@ def load_query_examples():
         # connections.connect(alias="default", uri="sqlite:///:memory:")
         # Uses in-memory SQLite for testing
     else:
-        print(
             "No Milvus connection information found. Please set it in the environment."
         )
         exit(1)
@@ -126,11 +124,9 @@ def load_query_examples():
 
     collection.insert(entities)
     collection.flush()
-    print("Inserted embeddings into Milvus")
 
 
 def get_hits(query: str, db: str, top_k=3):
-    print(f"Searching for: {query} in {collection_name} of {db}")
     query_embedding = get_embeddings([query])
     # if utility.load_state(collection_name) != LoadState.Loaded:
     #    collection.load()  # Ensure collection is loaded before querying
@@ -179,12 +175,9 @@ def get_hits(query: str, db: str, top_k=3):
 
 
 def test_vector_db():
-    print("\n\nTesting vector DB\n\n")
-    print(f"Index type: {settings.vector_db_index_type}")
 
     question = "What wallet held the most MOBILE tokens on February 12th, 2025."
     hits = get_hits(query=question, db="wh_v2")
-    print(f"{question}\n{hits}")
 
     # question = "Get the name of mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So address"
     # hits = get_hits(query=question, db="wh_v2")
@@ -192,7 +185,6 @@ def test_vector_db():
 
 
 def main():
-    print(
         f"""
         loading data from {settings.etl_file_name}
         to Milvus {settings.vector_db_collection_name}

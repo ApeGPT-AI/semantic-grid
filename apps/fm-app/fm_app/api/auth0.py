@@ -70,7 +70,6 @@ class VerifyToken:
 
         for scope in security_scopes.scopes:
             if scope not in token_scopes:
-                print("scope not in token scopes", scope, token_scopes)
                 return None
                 # raise HTTPException(
                 #    status_code=403,

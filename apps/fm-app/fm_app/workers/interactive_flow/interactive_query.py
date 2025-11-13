@@ -104,7 +104,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
         "flow_step_num": next(flow_step),
     }
 
-    print(">>> PRE MCP", stopwatch.lap())
 
     slot = await assembler.render_async(
         "interactive_query",
@@ -113,7 +112,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
         mcp_caps=db_meta_caps,
     )
 
-    print(">>> POST MCP", stopwatch.lap())
 
     query_llm_system_prompt = slot.prompt_text
 
@@ -139,7 +137,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             ai_request=messages,
         )
 
-        print(">>> PRE QUERY", stopwatch.lap())
 
         try:
             llm_response = ai_model.get_structured(messages, QueryMetadata)
@@ -157,7 +154,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             )
             return
 
-        print(">>> POST QUERY", stopwatch.lap())
 
         if ai_model.get_name() != "gemini":
             messages.append(
@@ -248,13 +244,11 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 extracted_sql=extracted_sql,
             )
 
-            print(">>> PRE ANALYZE", stopwatch.lap())
 
             analyzed = await db_meta_mcp_analyze_query(
                 req, extracted_sql, 5, settings, logger
             )
 
-            print(">>> POST ANALYZE", stopwatch.lap())
 
             if analyzed.get("explanation"):
                 explanation = analyzed.get("explanation")[0]
@@ -290,11 +284,9 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 continue
 
             # Row count commented out - keep for future use
-            print(">>> PRE ROW COUNT", stopwatch.lap())
             try:
                 row_count = count_wh_request(extracted_sql, db_wh)
                 new_metadata.update({"row_count": row_count})
-                print(">>> POST ROW COUNT", stopwatch.lap())
 
                 # Chart detection: build chart metadata from LLM suggestion + empirical validation
                 from fm_app.utils.chart_detection import build_chart_metadata
@@ -419,7 +411,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             refs=req.refs,
         )
 
-        print(">>> DONE INTERACTIVE QUERY", stopwatch.lap())
         return
 
     # If we reach here, exhausted all attempts

@@ -373,7 +373,6 @@ def assemble_tree(
     - For *.json/*.yaml where both base and overlay are mappings, apply JSON Merge Patch
     Returns dict: relpath -> bytes
     """
-    print("tree", system_root, overlays)
     base_files = _collect_files(system_root)
     tree: Dict[str, bytes] = {}
     for rel, ap in base_files.items():
@@ -394,7 +393,6 @@ def assemble_tree(
                         )
                         continue
                 except Exception as e:
-                    print(f"Error while merging {overlay_root}/{rel}: {str(e)}")
                     # fall back to replacement
                     pass
             tree[rel] = ap.read_bytes()

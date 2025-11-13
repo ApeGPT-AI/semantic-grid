@@ -617,7 +617,6 @@ async def create_request(
     )
 
     stopwatch.reset()
-    print(">>> API CALL", stopwatch.lap())
 
     wrk_req = WorkerRequest(
         session_id=session_id,
@@ -1088,7 +1087,6 @@ async def admin_get_all_requests(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not an admin"
         )
     admin = auth_result.get("sub")
-    print("admin", admin, limit, offset, status_param)
     response = await get_all_requests_admin(
         limit=limit, offset=offset, status=status_param, admin=admin, db=db
     )
@@ -1105,7 +1103,6 @@ async def generate_chart(request: ChartRequest):
         python_code = f"""
             import kaleido\n
             import plotly.io as pio\n
-            print(kaleido.__file__) # debug\n
             {python_code}\n
         """
         python_code = python_code.replace(
@@ -1451,7 +1448,6 @@ async def get_query_data(
 
         except Exception as err:
             error_msg = str(err)
-            print("SQL execution error:", error_msg)
             error_lower = error_msg.lower()
 
             # Provide better error messages for common issues

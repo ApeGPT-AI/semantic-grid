@@ -180,19 +180,16 @@ async def generate_execution_plan_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 dep_id: plan.step_map[dep_id]
                 for dep_id in _step.depends_on or [fallback_dep_id]
             }
-            print(f"  Executing step: {_step.id}, dependencies: {dependencies}")
 
             # Rewriting SQL to use real temp table names
             resolved_sql = resolve_step_sql(
                 _step.sql, dependencies, id_fn=compute_vector_id
             )
-            print(f"  Resolved SQL for {_step.id}: {resolved_sql}")
             # Clone the step with updated SQL
             step_with_sql = _step.model_copy(update={"sql": resolved_sql})
 
             result = await execute_step(step_with_sql.model_dump(), inner_state)
 
-            print(f"  Intermediate Result for {_step.id}: {result}")
 
             return {
                 _step.id: result,
@@ -217,12 +214,10 @@ async def generate_execution_plan_node(state: Dict[str, Any]) -> Dict[str, Any]:
     compiled = subgraph.compile()
     inner = InnerState(db_name=state.db_name)
     output_dict = await compiled.ainvoke(inner)
-    print("Subgraph output:", output_dict)
 
     # Step 5: Extract final result
     final_result = output_dict.get(plan.output_step_id)
 
-    print("Pipeline output:", final_result.get(plan.output_step_id, {}))
     return {
         "pipeline_output": final_result.get(plan.output_step_id, {}),
         "intermediate_steps": output_dict,
@@ -232,7 +227,6 @@ async def generate_execution_plan_node(state: Dict[str, Any]) -> Dict[str, Any]:
 async def format_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Format the response for the user
     response = state.pipeline_output
-    print("final result", response)
     formatted_response = f"Here are the results: {json.dumps(response)}"
     return {"formatted_response": formatted_response}
 
@@ -265,7 +259,6 @@ def load_graph_from_yaml(path: str):
 
 async def run_sql_query(sql: str, db: str) -> dict:
     # Replace with actual DB access
-    print(f"Running SQL:\n{sql}")
 
     async with db_client:
         try:
@@ -278,18 +271,15 @@ async def run_sql_query(sql: str, db: str) -> dict:
                 },
             )
             data = json.loads(result[0].text)
-            print(f"SQL result: {data}")
             return data
 
         except Exception as e:
-            print(f"SQL call failed: {e}")
             return {"error": str(e)}
 
 
 async def execute_step(step: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
     sql = step["sql"]
     # You can replace "step1" with actual result table name if needed
-    print("step", step.get("id"), "state", state)
     result = await run_sql_query(sql, state.get("db_name"))
     return {step.get("id"): result}
 
@@ -358,7 +348,6 @@ async def ask_llm_for_plan(query: str, db_name: str) -> ExecutionPipeline:
         method="json_mode", schema=ExecutionPipeline.model_json_schema()
     )
     parsed = llm_structured.invoke(prompt.format_prompt(query=query).to_messages())
-    print(f"PIPELINE: {parsed}")
     steps = [
         Step(
             id=f"step_{i + 1}",
@@ -403,7 +392,6 @@ async def langgraph_flow(
         "db_name": req.db.value,
     }
     result = await pipeline.ainvoke(state)
-    print("result", result.get("pipeline_output"))
 
     await update_request_status(RequestStatus.done, None, db, req.request_id)
     req.response = json.dumps(result.get("pipeline_output"))
