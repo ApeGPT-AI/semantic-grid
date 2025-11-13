@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from logging.config import dictConfig
+from this import d
 
 import structlog
 from celery import Celery
@@ -10,8 +11,10 @@ from celery.utils.log import get_task_logger
 # from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from trino.auth import BasicAuthentication
 
 from fm_app.ai_models.llm import AnthropicModel, DeepSeekModel, GeminiModel, OpenAIModel
+from fm_app.api.db_session import normalize_database_driver
 from fm_app.api.model import (
     AddRequestModel,
     DBType,
@@ -108,35 +111,71 @@ LOGGING_CONFIG_JSON = {
     },
 }
 
+
+def create_wh_engine(driver: str, url: str):
+    if driver == "trino":
+        logging.info("Starting Trino session")
+        wh_engine = create_engine(
+            url,
+            echo=True,
+            pool_size=20,
+            max_overflow=30,
+            pool_pre_ping=True,
+            pool_recycle=360,
+            connect_args={
+                "http_scheme": "https",
+                "verify": False,  # use a CA file path instead in prod, e.g. "/path/to/ca.crt"
+                "auth": BasicAuthentication(
+                    settings.database_wh_user, settings.database_wh_pass
+                ),
+            },
+        )
+    else:
+        logging.info(f"Starting {driver} session")
+        wh_engine = create_engine(
+            url,
+            pool_size=40,
+            max_overflow=60,
+            pool_pre_ping=True,
+            pool_recycle=360,
+        )
+    return wh_engine
+
+
 app = Celery("ai_handler", broker=settings.wrk_broker_connection)
 
 app.conf.update(broker_connection_retry_on_startup=True)
 
+normalized_driver = normalize_database_driver(settings.database_wh_driver)
+
 DATABASE_URL_WH = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server}:{settings.database_wh_port}/{settings.database_wh_db}{settings.database_wh_params}"
 DATABASE_URL_WH_NEW = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_new}:{settings.database_wh_port_new}/{settings.database_wh_db_new}{settings.database_wh_params_new}"
 DATABASE_URL_WH_V2 = f"{settings.database_wh_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"
+ENGINE_WH = create_wh_engine(normalized_driver, DATABASE_URL_WH)
+# ENGINE_WH = create_engine(
+#     DATABASE_URL_WH, pool_size=40, max_overflow=60, pool_pre_ping=True, pool_recycle=360
+# )
+# )
+ENGINE_WH_NEW = create_wh_engine(normalized_driver, DATABASE_URL_WH_NEW)
+# ENGINE_WH_NEW = create_engine(
+#     DATABASE_URL_WH_NEW,
+#     pool_size=40,
+#     max_overflow=60,
+#     pool_pre_ping=True,
+#     pool_recycle=360,
+# )
 
-ENGINE_WH = create_engine(
-    DATABASE_URL_WH, pool_size=40, max_overflow=60, pool_pre_ping=True, pool_recycle=360
-)
+ENGINE_WH_V2 = create_wh_engine(normalized_driver, DATABASE_URL_WH_V2)
+# ENGINE_WH_V2 = create_engine(
+#     DATABASE_URL_WH_V2,
+#     pool_size=40,
+#     max_overflow=60,
+#     pool_pre_ping=True,
+#     pool_recycle=360,
+# )
+
 SESSION_WH = sessionmaker(bind=ENGINE_WH, expire_on_commit=False)
-
-ENGINE_WH_NEW = create_engine(
-    DATABASE_URL_WH_NEW,
-    pool_size=40,
-    max_overflow=60,
-    pool_pre_ping=True,
-    pool_recycle=360,
-)
 SESSION_WH_NEW = sessionmaker(bind=ENGINE_WH_NEW, expire_on_commit=False)
-
-ENGINE_WH_V2 = create_engine(
-    DATABASE_URL_WH_V2,
-    pool_size=40,
-    max_overflow=60,
-    pool_pre_ping=True,
-    pool_recycle=360,
-)
 SESSION_WH_V2 = sessionmaker(bind=ENGINE_WH_V2, expire_on_commit=False)
 
 loop = asyncio.new_event_loop()

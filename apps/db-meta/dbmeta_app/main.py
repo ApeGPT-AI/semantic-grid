@@ -40,7 +40,7 @@ async def check_mcp(mcp_server: FastMCP):
                 "prompt_items",
                 {
                     "req": {
-                        "user_request": "Count all trades in the warehouse",
+                        "user_request": "List all tables in the warehouse",
                         "db": "wh_v2",
                     }
                 },
@@ -50,7 +50,7 @@ async def check_mcp(mcp_server: FastMCP):
                 "preflight_query",
                 {
                     "req": {
-                        "sql": "select count(*) from trades;",
+                        "sql": "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' ORDER BY table_schema, table_name",
                         "db": "wh_v2",
                     }
                 },

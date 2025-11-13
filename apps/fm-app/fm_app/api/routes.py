@@ -407,6 +407,9 @@ def build_sorted_paginated_sql(
     """
     from fm_app.utils.dialect import get_cached_warehouse_dialect
 
+    # Strip trailing semicolon from input SQL (breaks Trino)
+    user_sql = user_sql.strip().rstrip(";")
+
     # Auto-detect dialect if not provided
     if dialect is None:
         dialect = get_cached_warehouse_dialect()
@@ -440,7 +443,7 @@ def build_sorted_paginated_sql(
           (SELECT COUNT(*) FROM ({user_sql}) AS count_subquery) AS total_count
         FROM ({user_sql}) AS t
         {order_clause}
-        LIMIT :limit OFFSET :offset;
+        LIMIT :limit OFFSET :offset
         """
         else:
             # ClickHouse/Postgres: Window function is efficient
@@ -454,7 +457,7 @@ def build_sorted_paginated_sql(
           COUNT(*) OVER () AS total_count
         FROM orig_sql AS t
         {order_clause}
-        LIMIT :limit OFFSET :offset;
+        LIMIT :limit OFFSET :offset
         """
     else:
         # Simple pagination without count
@@ -463,7 +466,7 @@ def build_sorted_paginated_sql(
           t.*
         FROM ({user_sql}) AS t
         {order_clause}
-        LIMIT :limit OFFSET :offset;
+        LIMIT :limit OFFSET :offset
         """
 
 

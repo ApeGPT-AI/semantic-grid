@@ -43,25 +43,32 @@ def normalize_database_driver(driver: str) -> str:
 
 
 def get_db() -> Engine:
-    settings = get_settings()
-    # Normalize driver to handle 'postgres' -> 'postgresql' conversion
-    normalized_driver = normalize_database_driver(settings.database_wh_driver)
-    url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"  # noqa: E501
-    if normalized_driver == "trino":
-        return create_engine(
-            url,
-            pool_size=20,
-            max_overflow=30,
-            pool_pre_ping=True,
-            pool_recycle=360,
-            connect_args={
-                "http_scheme": "https",
-                "verify": False,  # use a CA file path instead in prod, e.g. "/path/to/ca.crt"
-                "auth": BasicAuthentication(
-                    settings.database_wh_user, settings.database_wh_pass
-                ),
-            },
+    try:
+        settings = get_settings()
+        # Normalize driver to handle 'postgres' -> 'postgresql' conversion
+        normalized_driver = normalize_database_driver(settings.database_wh_driver)
+        url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"  # noqa: E501
+        if normalized_driver == "trino":
+            eng = create_engine(
+                url,
+                pool_size=20,
+                max_overflow=30,
+                pool_pre_ping=True,
+                pool_recycle=360,
+                connect_args={
+                    "http_scheme": "https",
+                    "verify": False,  # use a CA file path instead in prod, e.g. "/path/to/ca.crt"
+                    "auth": BasicAuthentication(
+                        settings.database_wh_user, settings.database_wh_pass
+                    ),
+                },
+            )
+            return eng
+        db = create_engine(
+            url, pool_size=20, max_overflow=30, pool_pre_ping=True, pool_recycle=360
         )
-    return create_engine(
-        url, pool_size=20, max_overflow=30, pool_pre_ping=True, pool_recycle=360
-    )
+
+    except Exception as e:
+        raise Exception(f"Error creating database engine: {e}")
+
+    return db

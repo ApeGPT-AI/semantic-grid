@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     database_db: str
     database_wh_user: str
     database_wh_pass: str
-    database_wh_driver: Optional[str] = "clickhouse+native"
+    database_wh_driver: str = "clickhouse+native"
     database_wh_port: int
     database_wh_port_new: int
     database_wh_port_v2: int
