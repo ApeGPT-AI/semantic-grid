@@ -388,13 +388,65 @@ def build_sorted_paginated_sql(
     sort_by: Optional[str],
     sort_order: str,
     include_total_count: bool = False,
+    dialect: Optional[str] = None,
 ) -> str:
-    # Build ORDER BY clause if sort_by is provided
-    order_clause = f"\n        ORDER BY {sort_by} {sort_order}" if sort_by else ""
+    """
+    Build paginated SQL with sorting and optional total count.
 
+    Handles dialect-specific quirks for ClickHouse, PostgreSQL, and Trino.
+
+    Args:
+        user_sql: The base SQL query
+        sort_by: Column name to sort by (None for no sorting)
+        sort_order: Sort direction ('asc' or 'desc')
+        include_total_count: Whether to include total_count column
+        dialect: Database dialect (auto-detected if None)
+
+    Returns:
+        SQL query string with pagination and sorting
+    """
+    from fm_app.utils.dialect import get_cached_warehouse_dialect
+
+    # Auto-detect dialect if not provided
+    if dialect is None:
+        dialect = get_cached_warehouse_dialect()
+
+    # Handle Trino case-sensitive column names
+    if sort_by:
+        if dialect == "trino":
+            # Quote column name for case-sensitivity in Trino
+            # Escape any existing quotes by doubling them
+            sort_by_quoted = f'"{sort_by.replace('"', '""')}"'
+            order_clause = f"\n        ORDER BY {sort_by_quoted} {sort_order}"
+        else:
+            # ClickHouse, Postgres, etc. - no quoting needed
+            order_clause = f"\n        ORDER BY {sort_by} {sort_order}"
+    else:
+        # IMPORTANT: For Trino, pagination without ORDER BY is non-deterministic
+        # Add a default ORDER BY for stability
+        if dialect == "trino":
+            order_clause = "\n        ORDER BY 1 ASC"
+        else:
+            order_clause = ""
+
+    # Optimize COUNT query for Trino (avoid window function overhead)
     if include_total_count:
-        return f"""
-                WITH orig_sql AS (
+        if dialect == "trino":
+            # Trino: Use scalar subquery for count to avoid double execution
+            # Window function with OVER() can cause the CTE to execute twice
+            return f"""
+        SELECT
+          t.*,
+          (SELECT COUNT(*) FROM ({user_sql}) AS count_subquery) AS total_count
+        FROM ({user_sql}) AS t
+        {order_clause}
+        LIMIT :limit OFFSET :offset;
+        """
+        else:
+            # ClickHouse/Postgres: Window function is efficient
+            # CTE is materialized in ClickHouse, so COUNT(*) OVER() is fast
+            return f"""
+        WITH orig_sql AS (
           {user_sql}
         )
         SELECT
@@ -405,13 +457,11 @@ def build_sorted_paginated_sql(
         LIMIT :limit OFFSET :offset;
         """
     else:
+        # Simple pagination without count
         return f"""
-                WITH orig_sql AS (
-          {user_sql}
-        )
         SELECT
           t.*
-        FROM orig_sql AS t
+        FROM ({user_sql}) AS t
         {order_clause}
         LIMIT :limit OFFSET :offset;
         """

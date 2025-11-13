@@ -34,6 +34,7 @@ def get_warehouse_dialect() -> str:
             "sqlite": "sqlite",
             "mssql": "tsql",  # SQL Server
             "oracle": "oracle",
+            "trino": "trino",
         }
 
         return dialect_map.get(dialect_name.lower(), dialect_name.lower())
@@ -52,6 +53,8 @@ def get_warehouse_dialect() -> str:
             return "mysql"
         elif "mssql" in driver.lower() or "sqlserver" in driver.lower():
             return "tsql"
+        elif "trino" in driver.lower():
+            return "trino"
         else:
             # Default fallback
             return driver.lower()
