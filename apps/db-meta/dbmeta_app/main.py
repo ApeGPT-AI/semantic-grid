@@ -18,16 +18,6 @@ async def check_mcp(mcp_server: FastMCP):
     tools = await mcp_server.get_tools()
     resources = await mcp_server.get_resources()
     templates = await mcp_server.get_resource_templates()
-        f"""
-        {len(resources)} Resource(s):
-        {", ".join([r.name for r in resources.values()])}
-        """
-    )
-        f"""
-        {len(templates)} Resource Template(s):
-        {", ".join([t.name for t in templates.values()])}
-        """
-    )
 
     # client = Client(f"ws://localhost:{settings.port}")
     client = Client(mcp_server)
@@ -53,6 +43,7 @@ async def check_mcp(mcp_server: FastMCP):
             )
 
         except Exception as e:
+            pass
 
     return mcp_server
 

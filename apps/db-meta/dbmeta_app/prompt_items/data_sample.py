@@ -28,6 +28,7 @@ def get_data_sample_prompt_item():
 
             except Exception as e:
                 # Log the error and continue
+                pass
 
         sample_data_text = json.dumps(sample_data, indent=2)
 

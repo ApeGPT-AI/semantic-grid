@@ -159,5 +159,3 @@ if __name__ == "__main__":
 
     for sql, description, expected_valid in test_cases:
         result = validate_sql_syntax(sql, strict=False)
-        if result.error:
-        if result.warning:

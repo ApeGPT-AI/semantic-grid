@@ -78,8 +78,6 @@ def load_query_examples():
         # connections.connect(alias="default", uri="sqlite:///:memory:")
         # Uses in-memory SQLite for testing
     else:
-            "No Milvus connection information found. Please set it in the environment."
-        )
         exit(1)
 
     # Define schema
@@ -160,6 +158,7 @@ def get_hits(query: str, db: str, top_k=3):
         expr=f'db == "{db}"',
     )
     from dbmeta_app.vector_db.milvus import QueryExample
+
     output = []
     for i, hit in enumerate(results[0]):
         request = hit.entity.get("request")
@@ -175,7 +174,6 @@ def get_hits(query: str, db: str, top_k=3):
 
 
 def test_vector_db():
-
     question = "What wallet held the most MOBILE tokens on February 12th, 2025."
     hits = get_hits(query=question, db="wh_v2")
 
@@ -185,12 +183,6 @@ def test_vector_db():
 
 
 def main():
-        f"""
-        loading data from {settings.etl_file_name}
-        to Milvus {settings.vector_db_collection_name}
-        ({settings.vector_db_host}:{settings.vector_db_port})
-        """
-    )
     load_query_examples()
     # test_vector_db()
 

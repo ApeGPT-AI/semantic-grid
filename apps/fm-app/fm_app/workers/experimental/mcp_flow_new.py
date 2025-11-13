@@ -168,12 +168,6 @@ async def mcp_flow(
                 )
                 data = json.loads(result[0].text)
                 ts3 = datetime.datetime.now()
-                    "\n\nDATA:",
-                    ts3 - ts2,
-                    bool(data["csv"]),
-                    bool(data["error"]),
-                    "\n\n",
-                )
                 if "error" in data:
                     req.status = RequestStatus.error
                     req.err = data["error"]
