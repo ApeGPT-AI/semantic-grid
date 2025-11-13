@@ -485,19 +485,6 @@ async def get_request_by_id(
     return result
 
 
-async def get_schema(db: AsyncSession):
-    get_schema_sql = text(
-        """
-        SELECT table_name, column_name, data_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-        ORDER BY table_name, ordinal_position;
-        """
-    )
-    res = await db.execute(get_schema_sql)
-    for row in res.fetchall():
-
-
 async def get_all_requests(
     session_id: UUID, user_owner: str, db: AsyncSession
 ) -> list[GetRequestModel]:
@@ -509,7 +496,6 @@ async def get_all_requests(
             "session_id": session_id,
         },
     )
-    # await get_schema(db=db)
     await check_session_ownership(session_id=session_id, user_owner=user_owner, db=db)
     get_req_sql = text(
         """
