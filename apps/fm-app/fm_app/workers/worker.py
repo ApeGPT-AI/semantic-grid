@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from logging.config import dictConfig
-from this import d
 
 import structlog
 from celery import Celery
