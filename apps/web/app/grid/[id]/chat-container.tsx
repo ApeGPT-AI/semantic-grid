@@ -76,6 +76,9 @@ export const ChatContainer = ({
     isValidating,
     requestId,
     setRequestId,
+    setActiveColumn,
+    setActiveRows,
+    setSelectionModel,
   } = useGridSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -216,6 +219,11 @@ export const ChatContainer = ({
         // el.scrollIntoView({ behavior: "smooth", block: "start" });
 
         if (section.query) {
+          // Clear refs context when switching to a different query
+          setActiveColumn(null);
+          setActiveRows(undefined);
+          setSelectionModel([]);
+
           // Update URL fragment without reloading
           // eslint-disable-next-line no-restricted-globals
           history.pushState(null, "", `#${section.requestId}`);
