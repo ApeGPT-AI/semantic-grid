@@ -75,11 +75,11 @@ export const DashboardChartItem = ({
 
   if (chartType === "pie") {
     return (
-      <>
+      <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <PieChart
           series={pieSeries}
-          width={(minHeight * 1.5) / 3}
           height={minHeight}
+          sx={{ width: "100%" }}
         />
         {(isLoading || isRefreshing) && (
           <Box
@@ -96,18 +96,18 @@ export const DashboardChartItem = ({
             <CircularProgress />
           </Box>
         )}
-      </>
+      </Box>
     );
   }
   if (chartType === "line") {
     return (
-      <>
+      <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <LineChart
           xAxis={xAxis as any} // e.g. 'col_0'
           series={lineChartSeries}
           dataset={normalizeDataSet(data?.rows || [], gridColumns)}
-          width={(minHeight * 4) / 3}
           height={minHeight}
+          sx={{ width: "100%" }}
         >
           <ChartsTooltip /> {/* enables tooltips for all series at hovered X */}
         </LineChart>
@@ -126,18 +126,18 @@ export const DashboardChartItem = ({
             <CircularProgress />
           </Box>
         )}
-      </>
+      </Box>
     );
   }
   if (chartType === "bar") {
     return (
-      <>
+      <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <BarChart
           xAxis={xAxis as any}
           series={lineChartSeries}
           dataset={normalizeDataSet(data?.rows || [], gridColumns)}
-          width={(minHeight * 4) / 3}
           height={minHeight}
+          sx={{ width: "100%" }}
         >
           <ChartsTooltip />
         </BarChart>
@@ -156,7 +156,7 @@ export const DashboardChartItem = ({
             <CircularProgress />
           </Box>
         )}
-      </>
+      </Box>
     );
   }
   return <div>Unsupported chart type: {chartType}</div>;

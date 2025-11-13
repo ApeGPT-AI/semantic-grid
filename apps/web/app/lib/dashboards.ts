@@ -11,7 +11,6 @@ import type { Layout } from "react-grid-layout";
 import { db } from "@/app/db";
 import { dashboardItems, dashboards, queries, users } from "@/app/db/schema";
 
-
 export type Dashboard = {
   id: string;
   name: string;
@@ -331,14 +330,25 @@ export const ensureUserAndDashboard = async (opts: { sid?: string }) => {
   let userId: string | undefined;
 
   if (opts.sid) {
-    try {
-      const publicKey = await getPublicKey();
-      const jwt = await jose.jwtVerify(opts.sid, publicKey);
-      console.log("Verified guest JWT", jwt);
-      userId = jwt.payload?.sub;
-    } catch {
-      throw new Error("Invalid session");
-      // no or invalid token?
+    // Check if this is an Auth0 user ID (starts with "auth0|" or "google-oauth2|" etc.)
+    // or a guest JWT (starts with "ey" and contains dots)
+    const isJwt = opts.sid.startsWith("ey") && opts.sid.includes(".");
+
+    if (isJwt) {
+      // Guest JWT - verify and extract user ID
+      try {
+        const publicKey = await getPublicKey();
+        const jwt = await jose.jwtVerify(opts.sid, publicKey);
+        console.log("Verified guest JWT", jwt);
+        userId = jwt.payload?.sub;
+      } catch {
+        throw new Error("Invalid session");
+        // no or invalid token?
+      }
+    } else {
+      // Already a UUID (either converted Auth0 ID or guest UUID)
+      userId = opts.sid;
+      console.log("User UUID:", userId);
     }
   }
 

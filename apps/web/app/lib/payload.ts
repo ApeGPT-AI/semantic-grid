@@ -301,6 +301,26 @@ export const attachQueryToUserDashboard = async (input: {
     throw new Error("No userId provided");
   }
 
+  // Fetch the query to get its summary/intent for the item name
+  const queryWhere = { queryUid: { equals: input.queryUid } };
+  const queryQuery = stringify(
+    {
+      where: queryWhere,
+      limit: 1,
+    },
+    { addQueryPrefix: true },
+  );
+  const [queryData] = await getFromPayload("queries", queryQuery).then(
+    (r) => r?.docs || [],
+  );
+
+  // Use query summary, intent, or description as the item name
+  const itemName =
+    queryData?.summary ||
+    queryData?.intent ||
+    queryData?.description ||
+    "New Item";
+
   const where = { ownerUserId: { equals: input.userId } };
   const query = stringify(
     {
@@ -318,11 +338,12 @@ export const attachQueryToUserDashboard = async (input: {
   const dashboardId = userDashboards[0].id;
 
   return attachQueryToDashboard({
-    name: "New Item",
+    name: itemName,
     dashboardId: dashboardId.toString(),
     queryUid: input.queryUid,
     itemType: input.itemType,
     chartType: input.chartType,
+    width: 6,
   });
 };
 
@@ -374,16 +395,28 @@ export const ensureUserAndDashboard = async (opts: { sid?: string }) => {
   console.log("ensureUserAndDashboard:", opts);
 
   if (opts.sid) {
-    try {
-      const publicKey = await getPublicKey();
-      const jwt = await jose.jwtVerify(opts.sid, publicKey);
-      // console.log("Verified guest JWT", jwt);
-      userId = jwt.payload?.sub;
-      uid = jwt.payload.sub;
-      console.log("uid", uid);
-    } catch {
-      throw new Error("Invalid session");
-      // no or invalid token?
+    // Check if this is an Auth0 user ID (starts with "auth0|" or "google-oauth2|" etc.)
+    // or a guest JWT (starts with "ey" and contains dots)
+    const isJwt = opts.sid.startsWith("ey") && opts.sid.includes(".");
+
+    if (isJwt) {
+      // Guest JWT - verify and extract user ID
+      try {
+        const publicKey = await getPublicKey();
+        const jwt = await jose.jwtVerify(opts.sid, publicKey);
+        // console.log("Verified guest JWT", jwt);
+        userId = jwt.payload?.sub;
+        uid = jwt.payload.sub;
+        console.log("Guest uid from JWT:", uid);
+      } catch {
+        throw new Error("Invalid session");
+        // no or invalid token?
+      }
+    } else {
+      // Already a UUID (either converted Auth0 ID or guest UUID)
+      userId = opts.sid;
+      uid = opts.sid;
+      console.log("User UUID:", uid);
     }
   }
 

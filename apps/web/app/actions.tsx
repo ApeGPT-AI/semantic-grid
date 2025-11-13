@@ -192,7 +192,21 @@ export const getQueryById = async (id: string) => getQuery({ queryId: id });
 // app/actions/ensure-session.ts
 
 export const ensureSession = async () => {
-  const sid = cookies().get("uid")?.value;
+  // Try Auth0 session first, fall back to guest cookie
+  const { getSession } = await import("@auth0/nextjs-auth0");
+  const { auth0SubToUuid } = await import("@/app/lib/userIdUtils");
+  const authSession = await getSession();
+
+  let sid: string | undefined;
+  if (authSession?.user?.sub) {
+    // Authenticated user - convert Auth0 ID to UUID v5
+    sid = auth0SubToUuid(authSession.user.sub);
+    console.log("Auth user converted:", authSession.user.sub, "→", sid);
+  } else {
+    // Guest user - use guest JWT cookie
+    sid = cookies().get("uid")?.value;
+  }
+
   const { userId, dashboardId, uid } = await ensureUserAndDashboard({ sid });
   console.log("ensuring session, sid:", userId, dashboardId);
 
