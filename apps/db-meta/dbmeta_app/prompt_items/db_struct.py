@@ -303,6 +303,12 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                         "pg_temp_1",
                     )
                 ]
+            elif dialect == "trino":
+                # For Trino, filtering already done in _get_schemas_for_catalog
+                # but apply additional safety filter here
+                schema_names = [
+                    s for s in schema_names if s and s not in ("information_schema",)
+                ]
 
             # If no schemas found, use None
             if not schema_names:
@@ -310,7 +316,13 @@ def generate_schema_prompt(engine, settings, with_examples=False):
 
             for schema_name in schema_names:
                 try:
-                    if schema_name:
+                    if dialect == "trino" and catalog_name and schema_name:
+                        # For Trino, use raw SQL to query tables from catalog.schema
+                        result = conn.execute(
+                            text(f"SHOW TABLES FROM {catalog_name}.{schema_name}")
+                        )
+                        table_names = [row[0] for row in result.fetchall()]
+                    elif schema_name:
                         table_names = inspector.get_table_names(schema=schema_name)
                     else:
                         table_names = inspector.get_table_names()
@@ -507,6 +519,12 @@ def get_db_schema() -> DbSchema:
                         "pg_temp_1",
                     )
                 ]
+            elif dialect == "trino":
+                # For Trino, filtering already done in _get_schemas_for_catalog
+                # but apply additional safety filter here
+                schema_names = [
+                    s for s in schema_names if s and s not in ("information_schema",)
+                ]
 
             # If no schemas found, use None
             if not schema_names:
@@ -514,61 +532,69 @@ def get_db_schema() -> DbSchema:
 
             for schema_name in schema_names:
                 try:
-                    if schema_name:
+                    if dialect == "trino" and catalog_name and schema_name:
+                        # For Trino, use raw SQL to query tables from catalog.schema
+                        result = conn.execute(
+                            text(f"SHOW TABLES FROM {catalog_name}.{schema_name}")
+                        )
+                        table_names = [row[0] for row in result.fetchall()]
+                    elif schema_name:
                         table_names = inspector.get_table_names(schema=schema_name)
                     else:
                         table_names = inspector.get_table_names()
                 except Exception:
                     continue
 
-            for table in table_names:
-                if table.startswith("_") or table.startswith("temp_"):
-                    continue
+                for table in table_names:
+                    if table.startswith("_") or table.startswith("temp_"):
+                        continue
 
-                # Lookup table metadata with fallback (supports 3-level hierarchy)
-                table_metadata = _get_table_metadata_with_fallback(
-                    descriptions, table, schema_name, catalog_name
-                )
-
-                # Check if table should be included
-                if not _should_include_table(descriptions, table_metadata):
-                    continue
-
-                try:
-                    if schema_name:
-                        db_columns = inspector.get_columns(table, schema=schema_name)
-                    else:
-                        db_columns = inspector.get_columns(table)
-                except Exception:
-                    continue
-
-                columns = {}
-                for col in db_columns:
-                    col_metadata = table_metadata.get("columns", {}).get(
-                        col["name"], {}
+                    # Lookup table metadata with fallback (supports 3-level hierarchy)
+                    table_metadata = _get_table_metadata_with_fallback(
+                        descriptions, table, schema_name, catalog_name
                     )
-                    col_desc = col_metadata.get("description", "")
-                    col_example = col_metadata.get("example", "")
-                    col_hidden = col_metadata.get("hidden", False)
 
-                    if not col_hidden:
-                        columns[col["name"]] = DbColumn(
-                            name=col["name"],
-                            type=str(col["type"]),
-                            description=col_desc,
-                            example=col_example,
+                    # Check if table should be included
+                    if not _should_include_table(descriptions, table_metadata):
+                        continue
+
+                    try:
+                        if schema_name:
+                            db_columns = inspector.get_columns(
+                                table, schema=schema_name
+                            )
+                        else:
+                            db_columns = inspector.get_columns(table)
+                    except Exception:
+                        continue
+
+                    columns = {}
+                    for col in db_columns:
+                        col_metadata = table_metadata.get("columns", {}).get(
+                            col["name"], {}
                         )
+                        col_desc = col_metadata.get("description", "")
+                        col_example = col_metadata.get("example", "")
+                        col_hidden = col_metadata.get("hidden", False)
 
-                # Build fully qualified table name for result key
-                if schema_name:
-                    full_table_name = f"{schema_name}.{table}"
-                else:
-                    full_table_name = table
+                        if not col_hidden:
+                            columns[col["name"]] = DbColumn(
+                                name=col["name"],
+                                type=str(col["type"]),
+                                description=col_desc,
+                                example=col_example,
+                            )
 
-                result[full_table_name] = DbTable(
-                    columns=columns,
-                    description=table_metadata.get("description", None),
-                )
+                    # Build fully qualified table name for result key
+                    if schema_name:
+                        full_table_name = f"{schema_name}.{table}"
+                    else:
+                        full_table_name = table
+
+                    result[full_table_name] = DbTable(
+                        columns=columns,
+                        description=table_metadata.get("description", None),
+                    )
 
     return result
 
@@ -635,6 +661,12 @@ def get_data_samples() -> dict[str, Any]:
                         "pg_temp_1",
                     )
                 ]
+            elif dialect == "trino":
+                # For Trino, filtering already done in _get_schemas_for_catalog
+                # but apply additional safety filter here
+                schema_names = [
+                    s for s in schema_names if s and s not in ("information_schema",)
+                ]
 
             # If no schemas found, use None
             if not schema_names:
@@ -642,7 +674,13 @@ def get_data_samples() -> dict[str, Any]:
 
             for schema_name in schema_names:
                 try:
-                    if schema_name:
+                    if dialect == "trino" and catalog_name and schema_name:
+                        # For Trino, use raw SQL to query tables from catalog.schema
+                        result = conn.execute(
+                            text(f"SHOW TABLES FROM {catalog_name}.{schema_name}")
+                        )
+                        table_names = [row[0] for row in result.fetchall()]
+                    elif schema_name:
                         table_names = inspector.get_table_names(schema=schema_name)
                     else:
                         table_names = inspector.get_table_names()
