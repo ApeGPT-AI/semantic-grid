@@ -93,42 +93,87 @@ def load_yaml_descriptions(yaml_file):
         return yaml.safe_load(file)
 
 
-def _extract_catalog_from_url(engine):
+def _get_catalogs(engine, conn):
     """
-    Extract catalog name from database connection URL.
+    Get list of catalogs from the database.
 
-    For Trino: trino://user@host:port/catalog/schema -> returns 'catalog'
-    For ClickHouse: the database name acts as the catalog
-    For others: returns None
+    For Trino: Queries all available catalogs via SHOW CATALOGS
+    For ClickHouse: Returns the database name from URL as single catalog
+    For others: Returns [None]
 
     Args:
         engine: SQLAlchemy engine
+        conn: Active database connection
 
     Returns:
-        str or None: Catalog name if applicable
+        list: List of catalog names, or [None] if not applicable
     """
     dialect = engine.dialect.name.lower()
 
     if dialect == "trino":
-        # Trino URL format: trino://user@host:port/catalog or trino://user@host:port/catalog/schema
-        # The database part of the URL is the catalog
-        url = engine.url
-        # In SQLAlchemy, url.database contains the path after the port
-        # For trino://host:port/catalog/schema, url.database = 'catalog'
-        # The schema is accessed separately
-        if url.database:
-            # If the database contains a slash, take the first part as catalog
-            parts = url.database.split("/")
-            return parts[0]
-        return url.database
+        # Query all available catalogs in Trino
+        try:
+            result = conn.execute(text("SHOW CATALOGS"))
+            catalogs = [row[0] for row in result.fetchall()]
+            # Filter out system catalogs if needed
+            catalogs = [
+                c for c in catalogs if c not in ("system", "information_schema")
+            ]
+            return catalogs if catalogs else [None]
+        except Exception:
+            # Fallback to extracting from URL if SHOW CATALOGS fails
+            url = engine.url
+            if url.database:
+                parts = url.database.split("/")
+                return [parts[0]]
+            return [None]
     elif dialect == "clickhouse":
-        # For ClickHouse, the database acts as the catalog/schema
-        # Return it so we can use it in 3-level resolution
+        # For ClickHouse, the database acts as the catalog
         url = engine.url
-        return url.database
+        return [url.database] if url.database else [None]
     else:
-        # For PostgreSQL and others, no catalog extraction needed
-        return None
+        # For PostgreSQL and others, no catalog level
+        return [None]
+
+
+def _get_schemas_for_catalog(engine, inspector, conn, catalog_name):
+    """
+    Get schemas for a specific catalog.
+
+    For Trino: Executes SHOW SCHEMAS FROM catalog
+    For others: Uses inspector.get_schema_names()
+
+    Args:
+        engine: SQLAlchemy engine
+        inspector: SQLAlchemy inspector
+        conn: Active database connection
+        catalog_name: Name of the catalog (or None)
+
+    Returns:
+        list: List of schema names
+    """
+    dialect = engine.dialect.name.lower()
+
+    if dialect == "trino" and catalog_name:
+        # Query schemas within the specific catalog
+        try:
+            result = conn.execute(text(f"SHOW SCHEMAS FROM {catalog_name}"))
+            schemas = [row[0] for row in result.fetchall()]
+            # Filter out system schemas
+            schemas = [s for s in schemas if s not in ("information_schema",)]
+            return schemas if schemas else [None]
+        except Exception:
+            # Fallback to inspector if query fails
+            try:
+                return inspector.get_schema_names()
+            except Exception:
+                return [None]
+    else:
+        # Use standard inspector for other databases
+        try:
+            return inspector.get_schema_names()
+        except Exception:
+            return [None]
 
 
 def _get_table_metadata_with_fallback(
@@ -221,56 +266,57 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     descriptions = file["profiles"][profile]
     schema_text = "The database contains the following tables:\n\n"
 
-    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
-    catalog_name = _extract_catalog_from_url(engine)
-
     with engine.connect() as conn:
-        # Get all schemas/databases
-        try:
-            schema_names = inspector.get_schema_names()
-        except Exception:
-            # Fallback for databases that don't support get_schema_names
-            schema_names = [None]
-
-        # Filter out system schemas based on dialect
-        if dialect == "clickhouse":
-            # Skip ClickHouse system databases
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and not s.startswith("_")
-                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
-            ]
-        elif dialect in ("postgresql", "postgres"):
-            # Skip PostgreSQL system schemas
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and s
-                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
-            ]
-        elif dialect == "trino":
-            # For Trino, we might need to handle catalogs differently
-            # Keep all schemas for now as filtering happens at table level
-            pass
-
-        # If no schemas found or dialect doesn't support schemas, use None
-        if not schema_names:
-            schema_names = [None]
+        # Get all catalogs (Trino: multiple, others: single or None)
+        catalog_names = _get_catalogs(engine, conn)
 
         table_counter = 0
 
-        for schema_name in schema_names:
-            try:
-                if schema_name:
-                    table_names = inspector.get_table_names(schema=schema_name)
-                else:
-                    table_names = inspector.get_table_names()
-            except Exception:
-                # Skip schemas that error out
-                continue
+        # Iterate through catalogs (outer loop for Trino 3-level hierarchy)
+        for catalog_name in catalog_names:
+            # Get schemas for this catalog
+            schema_names = _get_schemas_for_catalog(
+                engine, inspector, conn, catalog_name
+            )
+
+            # Filter out system schemas based on dialect
+            if dialect == "clickhouse":
+                # Skip ClickHouse system databases
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and not s.startswith("_")
+                    and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+                ]
+            elif dialect in ("postgresql", "postgres"):
+                # Skip PostgreSQL system schemas
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and s
+                    not in (
+                        "information_schema",
+                        "pg_catalog",
+                        "pg_toast",
+                        "pg_temp_1",
+                    )
+                ]
+
+            # If no schemas found, use None
+            if not schema_names:
+                schema_names = [None]
+
+            for schema_name in schema_names:
+                try:
+                    if schema_name:
+                        table_names = inspector.get_table_names(schema=schema_name)
+                    else:
+                        table_names = inspector.get_table_names()
+                except Exception:
+                    # Skip schemas that error out
+                    continue
             logging.info(
                 "got table_names", extra={"schema": schema_name, "tables": table_names}
             )
@@ -426,51 +472,54 @@ def get_db_schema() -> DbSchema:
 
     descriptions = file["profiles"][profile]
 
-    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
-    catalog_name = _extract_catalog_from_url(engine)
-
     result: DbSchema = {}
 
-    with engine.connect():
-        # Get all schemas/databases
-        try:
-            schema_names = inspector.get_schema_names()
-        except Exception:
-            # Fallback for databases that don't support get_schema_names
-            schema_names = [None]
+    with engine.connect() as conn:
+        # Get all catalogs (Trino: multiple, others: single or None)
+        catalog_names = _get_catalogs(engine, conn)
 
-        # Filter out system schemas based on dialect
-        if dialect == "clickhouse":
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and not s.startswith("_")
-                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
-            ]
-        elif dialect in ("postgresql", "postgres"):
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and s
-                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
-            ]
-        elif dialect == "trino":
-            pass  # Keep all schemas for Trino
+        # Iterate through catalogs (outer loop for Trino 3-level hierarchy)
+        for catalog_name in catalog_names:
+            # Get schemas for this catalog
+            schema_names = _get_schemas_for_catalog(
+                engine, inspector, conn, catalog_name
+            )
 
-        # If no schemas found or dialect doesn't support schemas, use None
-        if not schema_names:
-            schema_names = [None]
+            # Filter out system schemas based on dialect
+            if dialect == "clickhouse":
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and not s.startswith("_")
+                    and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+                ]
+            elif dialect in ("postgresql", "postgres"):
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and s
+                    not in (
+                        "information_schema",
+                        "pg_catalog",
+                        "pg_toast",
+                        "pg_temp_1",
+                    )
+                ]
 
-        for schema_name in schema_names:
-            try:
-                if schema_name:
-                    table_names = inspector.get_table_names(schema=schema_name)
-                else:
-                    table_names = inspector.get_table_names()
-            except Exception:
-                continue
+            # If no schemas found, use None
+            if not schema_names:
+                schema_names = [None]
+
+            for schema_name in schema_names:
+                try:
+                    if schema_name:
+                        table_names = inspector.get_table_names(schema=schema_name)
+                    else:
+                        table_names = inspector.get_table_names()
+                except Exception:
+                    continue
 
             for table in table_names:
                 if table.startswith("_") or table.startswith("temp_"):
@@ -551,108 +600,114 @@ def get_data_samples() -> dict[str, Any]:
 
     descriptions = file["profiles"][profile]
 
-    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
-    catalog_name = _extract_catalog_from_url(engine)
-
     result = {}
 
     with engine.connect() as conn:
-        # Get all schemas/databases
-        try:
-            schema_names = inspector.get_schema_names()
-        except Exception:
-            # Fallback for databases that don't support get_schema_names
-            schema_names = [None]
+        # Get all catalogs (Trino: multiple, others: single or None)
+        catalog_names = _get_catalogs(engine, conn)
 
-        # Filter out system schemas based on dialect
-        if dialect == "clickhouse":
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and not s.startswith("_")
-                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
-            ]
-        elif dialect in ("postgresql", "postgres"):
-            schema_names = [
-                s
-                for s in schema_names
-                if s
-                and s
-                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
-            ]
-        elif dialect == "trino":
-            pass  # Keep all schemas for Trino
+        # Iterate through catalogs (outer loop for Trino 3-level hierarchy)
+        for catalog_name in catalog_names:
+            # Get schemas for this catalog
+            schema_names = _get_schemas_for_catalog(
+                engine, inspector, conn, catalog_name
+            )
 
-        # If no schemas found or dialect doesn't support schemas, use None
-        if not schema_names:
-            schema_names = [None]
+            # Filter out system schemas based on dialect
+            if dialect == "clickhouse":
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and not s.startswith("_")
+                    and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+                ]
+            elif dialect in ("postgresql", "postgres"):
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and s
+                    not in (
+                        "information_schema",
+                        "pg_catalog",
+                        "pg_toast",
+                        "pg_temp_1",
+                    )
+                ]
 
-        for schema_name in schema_names:
-            try:
-                if schema_name:
-                    table_names = inspector.get_table_names(schema=schema_name)
-                else:
-                    table_names = inspector.get_table_names()
-            except Exception:
-                continue
+            # If no schemas found, use None
+            if not schema_names:
+                schema_names = [None]
 
-            for table in table_names:
-                if table.startswith("_") or table.startswith("temp_"):
-                    continue
-
-                # Lookup table metadata with fallback (supports 3-level hierarchy)
-                table_metadata = _get_table_metadata_with_fallback(
-                    descriptions, table, schema_name, catalog_name
-                )
-
-                # Check if table should be included
-                if not _should_include_table(descriptions, table_metadata):
-                    continue
-
+            for schema_name in schema_names:
                 try:
-                    # Build qualified table name for query
                     if schema_name:
-                        full_table_name = f"{schema_name}.{table}"
+                        table_names = inspector.get_table_names(schema=schema_name)
                     else:
-                        full_table_name = table
-
-                    # Use database-specific optimized sampling
-                    sample_query = get_sample_query(full_table_name, engine)
-                    res = conn.execute(text(sample_query))
+                        table_names = inspector.get_table_names()
                 except Exception:
-                    # Skip tables that timeout or fail to query
                     continue
 
-                # skip columns which are marked as hidden in descriptions
-                columns = res.keys()
-                # Filter out hidden columns
-                visible_columns = [
-                    col
-                    for col in columns
-                    if not table_metadata.get("columns", {})
-                    .get(col, {})
-                    .get("hidden", False)
-                ]
+                for table in table_names:
+                    if table.startswith("_") or table.startswith("temp_"):
+                        continue
 
-                # Get indexes of visible columns to filter row values
-                visible_indexes = [
-                    i for i, col in enumerate(columns) if col in visible_columns
-                ]
+                    # Lookup table metadata with fallback (supports 3-level hierarchy)
+                    table_metadata = _get_table_metadata_with_fallback(
+                        descriptions, table, schema_name, catalog_name
+                    )
 
-                # Fetch sample rows with only visible columns
-                rows = [
-                    {col: row[i] for col, i in zip(visible_columns, visible_indexes)}
-                    for row in res.fetchall()
-                ]
+                    # Check if table should be included
+                    if not _should_include_table(descriptions, table_metadata):
+                        continue
 
-                if rows:
-                    # Use fully qualified name as key
-                    if schema_name:
-                        full_table_name = f"{schema_name}.{table}"
-                    else:
-                        full_table_name = table
-                    result[full_table_name] = rows
+                    try:
+                        # Build qualified table name for query
+                        if schema_name:
+                            full_table_name = f"{schema_name}.{table}"
+                        else:
+                            full_table_name = table
+
+                        # Use database-specific optimized sampling
+                        sample_query = get_sample_query(full_table_name, engine)
+                        res = conn.execute(text(sample_query))
+                    except Exception:
+                        # Skip tables that timeout or fail to query
+                        continue
+
+                    # skip columns which are marked as hidden in descriptions
+                    columns = res.keys()
+                    # Filter out hidden columns
+                    visible_columns = [
+                        col
+                        for col in columns
+                        if not table_metadata.get("columns", {})
+                        .get(col, {})
+                        .get("hidden", False)
+                    ]
+
+                    # Get indexes of visible columns to filter row values
+                    visible_indexes = [
+                        i for i, col in enumerate(columns) if col in visible_columns
+                    ]
+
+                    # Fetch sample rows with only visible columns
+                    rows = [
+                        {
+                            col: row[i]
+                            for col, i in zip(visible_columns, visible_indexes)
+                        }
+                        for row in res.fetchall()
+                    ]
+
+                    if rows:
+                        # Use fully qualified name as key
+                        if schema_name:
+                            full_table_name = f"{schema_name}.{table}"
+                        else:
+                            full_table_name = table
+                        result[full_table_name] = rows
 
     return result
 
