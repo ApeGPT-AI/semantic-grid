@@ -93,6 +93,44 @@ def load_yaml_descriptions(yaml_file):
         return yaml.safe_load(file)
 
 
+def _extract_catalog_from_url(engine):
+    """
+    Extract catalog name from database connection URL.
+
+    For Trino: trino://user@host:port/catalog/schema -> returns 'catalog'
+    For ClickHouse: the database name acts as the catalog
+    For others: returns None
+
+    Args:
+        engine: SQLAlchemy engine
+
+    Returns:
+        str or None: Catalog name if applicable
+    """
+    dialect = engine.dialect.name.lower()
+
+    if dialect == "trino":
+        # Trino URL format: trino://user@host:port/catalog or trino://user@host:port/catalog/schema
+        # The database part of the URL is the catalog
+        url = engine.url
+        # In SQLAlchemy, url.database contains the path after the port
+        # For trino://host:port/catalog/schema, url.database = 'catalog'
+        # The schema is accessed separately
+        if url.database:
+            # If the database contains a slash, take the first part as catalog
+            parts = url.database.split("/")
+            return parts[0]
+        return url.database
+    elif dialect == "clickhouse":
+        # For ClickHouse, the database acts as the catalog/schema
+        # Return it so we can use it in 3-level resolution
+        url = engine.url
+        return url.database
+    else:
+        # For PostgreSQL and others, no catalog extraction needed
+        return None
+
+
 def _get_table_metadata_with_fallback(
     descriptions, table_name, schema_name=None, catalog_name=None
 ):
@@ -183,6 +221,9 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     descriptions = file["profiles"][profile]
     schema_text = "The database contains the following tables:\n\n"
 
+    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
+    catalog_name = _extract_catalog_from_url(engine)
+
     with engine.connect() as conn:
         # Get all schemas/databases
         try:
@@ -239,11 +280,9 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                 if table.startswith("_") or table.startswith("temp_"):
                     continue
 
-                # Lookup table metadata with fallback
-                # Note: For Trino with catalogs, you might need to
-                # extract catalog info separately
+                # Lookup table metadata with fallback (supports 3-level hierarchy)
                 table_metadata = _get_table_metadata_with_fallback(
-                    descriptions, table, schema_name, catalog_name=None
+                    descriptions, table, schema_name, catalog_name
                 )
 
                 # Check if table should be included
@@ -387,6 +426,9 @@ def get_db_schema() -> DbSchema:
 
     descriptions = file["profiles"][profile]
 
+    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
+    catalog_name = _extract_catalog_from_url(engine)
+
     result: DbSchema = {}
 
     with engine.connect():
@@ -434,9 +476,9 @@ def get_db_schema() -> DbSchema:
                 if table.startswith("_") or table.startswith("temp_"):
                     continue
 
-                # Lookup table metadata with fallback
+                # Lookup table metadata with fallback (supports 3-level hierarchy)
                 table_metadata = _get_table_metadata_with_fallback(
-                    descriptions, table, schema_name, catalog_name=None
+                    descriptions, table, schema_name, catalog_name
                 )
 
                 # Check if table should be included
@@ -509,6 +551,9 @@ def get_data_samples() -> dict[str, Any]:
 
     descriptions = file["profiles"][profile]
 
+    # Extract catalog name from connection URL (for Trino 3-level hierarchy)
+    catalog_name = _extract_catalog_from_url(engine)
+
     result = {}
 
     with engine.connect() as conn:
@@ -556,9 +601,9 @@ def get_data_samples() -> dict[str, Any]:
                 if table.startswith("_") or table.startswith("temp_"):
                     continue
 
-                # Lookup table metadata with fallback
+                # Lookup table metadata with fallback (supports 3-level hierarchy)
                 table_metadata = _get_table_metadata_with_fallback(
-                    descriptions, table, schema_name, catalog_name=None
+                    descriptions, table, schema_name, catalog_name
                 )
 
                 # Check if table should be included
