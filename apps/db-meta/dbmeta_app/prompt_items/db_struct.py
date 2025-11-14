@@ -350,7 +350,10 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                 table_counter += 1
 
                 # Build fully qualified table name for display
-                if schema_name:
+                # For Trino, use catalog.schema.table (3-level)
+                if dialect == "trino" and catalog_name and schema_name:
+                    full_table_name = f"{catalog_name}.{schema_name}.{table}"
+                elif schema_name:
                     full_table_name = f"{schema_name}.{table}"
                 else:
                     full_table_name = table
@@ -586,7 +589,10 @@ def get_db_schema() -> DbSchema:
                             )
 
                     # Build fully qualified table name for result key
-                    if schema_name:
+                    # For Trino, use catalog.schema.table (3-level)
+                    if dialect == "trino" and catalog_name and schema_name:
+                        full_table_name = f"{catalog_name}.{schema_name}.{table}"
+                    elif schema_name:
                         full_table_name = f"{schema_name}.{table}"
                     else:
                         full_table_name = table
