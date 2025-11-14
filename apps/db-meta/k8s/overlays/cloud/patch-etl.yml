@@ -11,4 +11,4 @@ spec:
     spec:
       containers:
         - name: dbmeta-etl
-          image: '205930631794.dkr.ecr.us-east-1.amazonaws.com/dbmeta:4.50'
+          image: '205930631794.dkr.ecr.us-east-1.amazonaws.com/dbmeta:4.51'

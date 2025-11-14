@@ -1,3 +1,4 @@
+import logging
 import pathlib
 from typing import Any, Dict
 
@@ -33,31 +34,31 @@ def get_sample_query(table: str, engine, limit: int = 5) -> str:
     """
     dialect = engine.dialect.name.lower()
 
-    if dialect == 'clickhouse':
+    if dialect == "clickhouse":
         # ClickHouse: SAMPLE is very efficient (samples data blocks)
         # SAMPLE 0.01 = sample 1% of data blocks
         return f"SELECT * FROM {table} SAMPLE 0.01 LIMIT {limit}"
-    elif dialect == 'postgresql':
+    elif dialect == "postgresql":
         # PostgreSQL: TABLESAMPLE BERNOULLI samples individual rows
         # BERNOULLI(1) = 1% row-level sampling
         # Note: SYSTEM is faster but may return 0 rows on small tables
         return f"SELECT * FROM {table} TABLESAMPLE BERNOULLI (1) LIMIT {limit}"
-    elif dialect == 'duckdb':
+    elif dialect == "duckdb":
         # DuckDB: USING SAMPLE is very fast
         return f"SELECT * FROM {table} USING SAMPLE 1% LIMIT {limit}"
-    elif dialect in ('mysql', 'mariadb'):
+    elif dialect in ("mysql", "mariadb"):
         # MySQL: Just use LIMIT (ORDER BY RAND() is extremely slow on large tables)
         # This gets rows in storage order, which is usually fine for sample data
         return f"SELECT * FROM {table} LIMIT {limit}"
-    elif dialect == 'sqlite':
+    elif dialect == "sqlite":
         # SQLite: Simple LIMIT (RANDOM() is slow, but SQLite typically
         # has small datasets)
         return f"SELECT * FROM {table} LIMIT {limit}"
-    elif dialect == 'mssql':
+    elif dialect == "mssql":
         # SQL Server: TABLESAMPLE can be used but syntax is different
         # Using simple LIMIT-style query (TOP in SQL Server)
         return f"SELECT TOP {limit} * FROM {table}"
-    elif dialect == 'oracle':
+    elif dialect == "oracle":
         # Oracle: Use SAMPLE clause or ROWNUM
         return f"SELECT * FROM {table} SAMPLE (1) WHERE ROWNUM <= {limit}"
     else:
@@ -92,10 +93,73 @@ def load_yaml_descriptions(yaml_file):
         return yaml.safe_load(file)
 
 
+def _get_table_metadata_with_fallback(
+    descriptions, table_name, schema_name=None, catalog_name=None
+):
+    """
+    Lookup table metadata from descriptions with fallback from fully
+    qualified to short names.
+
+    Tries in order:
+    1. catalog.schema.table (if catalog and schema provided)
+    2. schema.table (if schema provided)
+    3. table (short name)
+
+    Args:
+        descriptions: The descriptions dict from schema_descriptions.yaml
+        table_name: Table name
+        schema_name: Optional schema/database name
+        catalog_name: Optional catalog name (Trino)
+
+    Returns:
+        dict: Table metadata from descriptions, or empty dict if not found
+    """
+    tables = descriptions.get("tables", {})
+
+    # Try fully qualified names first (most specific to least specific)
+    if catalog_name and schema_name:
+        fqn = f"{catalog_name}.{schema_name}.{table_name}"
+        if fqn in tables:
+            return tables[fqn]
+
+    if schema_name:
+        fqn = f"{schema_name}.{table_name}"
+        if fqn in tables:
+            return tables[fqn]
+
+    # Fallback to short table name
+    return tables.get(table_name, {})
+
+
+def _should_include_table(descriptions, table_metadata):
+    """
+    Determine if a table should be included based on whitelist/hidden settings.
+
+    Args:
+        descriptions: Profile descriptions from schema_descriptions.yaml
+        table_metadata: Table metadata dict
+
+    Returns:
+        bool: True if table should be included
+    """
+    has_whitelist = descriptions.get("whitelist", False)
+    has_table_description = bool(table_metadata)
+
+    # with whitelist mode, only tables in the descriptions are included
+    if has_whitelist and not has_table_description:
+        return False
+
+    if table_metadata.get("hidden", False):
+        return False
+
+    return True
+
+
 def generate_schema_prompt(engine, settings, with_examples=False):
     """Generates a human-readable schema description merged with YAML descriptions,
-    including examples."""
+    including examples. Iterates through catalog/schema/table hierarchy."""
     inspector = inspect(engine)
+    dialect = engine.dialect.name.lower()
     repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
     client = settings.client
     env = settings.env
@@ -107,8 +171,7 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     # Defensive: handle missing 'profiles' key or missing profile
     if "profiles" not in file:
         raise ValueError(
-            f"schema_descriptions.yaml missing 'profiles' key. "
-            f"File content: {file}"
+            f"schema_descriptions.yaml missing 'profiles' key. File content: {file}"
         )
     if profile not in file["profiles"]:
         available_profiles = list(file["profiles"].keys())
@@ -121,88 +184,161 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     schema_text = "The database contains the following tables:\n\n"
 
     with engine.connect() as conn:
-        table_names = inspector.get_table_names()
-        for idx, table in enumerate(table_names):
-            # Skip system/internal tables and temp tables
-            if table.startswith("_") or table.startswith("temp_"):
-                continue
+        # Get all schemas/databases
+        try:
+            schema_names = inspector.get_schema_names()
+        except Exception:
+            # Fallback for databases that don't support get_schema_names
+            schema_names = [None]
 
-            # Check if the whitelist mode is enabled
-            has_whitelist = descriptions.get("whitelist", False)
-            has_table_description = descriptions.get("tables", {}).get(table, False)
-            # with whitelist mode, only tables in the descriptions are included
-            if has_whitelist and not has_table_description:
-                continue
+        # Filter out system schemas based on dialect
+        if dialect == "clickhouse":
+            # Skip ClickHouse system databases
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and not s.startswith("_")
+                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+            ]
+        elif dialect in ("postgresql", "postgres"):
+            # Skip PostgreSQL system schemas
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and s
+                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
+            ]
+        elif dialect == "trino":
+            # For Trino, we might need to handle catalogs differently
+            # Keep all schemas for now as filtering happens at table level
+            pass
 
-            table_metadata = descriptions.get("tables", {}).get(table, {})
-            if table_metadata.get("hidden", False):
-                continue
+        # If no schemas found or dialect doesn't support schemas, use None
+        if not schema_names:
+            schema_names = [None]
 
-            table_description = table_metadata.get(
-                "description", f"Stores {table.replace('_', ' ')} data."
-            )
-            schema_text += f"Table #{idx + 1}. **{table}** ({table_description})\n"
+        table_counter = 0
 
-            columns = inspector.get_columns(table)
-            for col in columns:
-                col_metadata = table_metadata.get("columns", {}).get(col["name"], {})
-                col_desc = col_metadata.get("description", "")
-                col_example = col_metadata.get("example", "")
-                col_hidden = col_metadata.get("hidden", False)
-
-                if not col_hidden:
-                    col_type = str(col["type"])
-                    schema_text += f"   - {col['name']} ({col_type})"
-
-                    if col_desc:
-                        schema_text += f" - {col_desc}"
-                    if col_example:
-                        schema_text += f" (e.g., {col_example})"
-
-                    schema_text += "\n"
-
-            schema_text += "\n"
-
-            # Fetch sample rows
-            if not with_examples:
-                continue
-
+        for schema_name in schema_names:
             try:
-                # Use database-specific optimized sampling
-                sample_query = get_sample_query(table, engine)
-                res = conn.execute(text(sample_query))
+                if schema_name:
+                    table_names = inspector.get_table_names(schema=schema_name)
+                else:
+                    table_names = inspector.get_table_names()
             except Exception:
-                # Skip tables that timeout or fail to query
+                # Skip schemas that error out
                 continue
+            logging.info(
+                "got table_names", extra={"schema": schema_name, "tables": table_names}
+            )
 
-            # skip columns which are marked as hidden in descriptions
-            columns = res.keys()
-            # Filter out hidden columns
-            visible_columns = [
-                col
-                for col in columns
-                if not table_metadata.get("columns", {})
-                .get(col, {})
-                .get("hidden", False)
-            ]
+            for table in table_names:
+                # Skip system/internal tables and temp tables
+                if table.startswith("_") or table.startswith("temp_"):
+                    continue
 
-            # Get indexes of visible columns to filter row values
-            visible_indexes = [
-                i for i, col in enumerate(columns) if col in visible_columns
-            ]
-
-            # Fetch sample rows with only visible columns
-            rows = [
-                {col: row[i] for col, i in zip(visible_columns, visible_indexes)}
-                for row in res.fetchall()
-            ]
-            if rows:
-                # rows_str = [{k: str(v) for k, v in row.items()} for row in rows]
-                schema_text += (
-                    "\nSample Data Rows (CSVs):\n"
-                    + "\n".join(",".join(map(str, row.values())) for row in rows)
-                    + "\n\n"
+                # Lookup table metadata with fallback
+                # Note: For Trino with catalogs, you might need to
+                # extract catalog info separately
+                table_metadata = _get_table_metadata_with_fallback(
+                    descriptions, table, schema_name, catalog_name=None
                 )
+
+                # Check if table should be included
+                if not _should_include_table(descriptions, table_metadata):
+                    continue
+
+                table_counter += 1
+
+                # Build fully qualified table name for display
+                if schema_name:
+                    full_table_name = f"{schema_name}.{table}"
+                else:
+                    full_table_name = table
+
+                table_description = table_metadata.get(
+                    "description", f"Stores {table.replace('_', ' ')} data."
+                )
+                schema_text += (
+                    f"Table #{table_counter}. **{full_table_name}** "
+                    f"({table_description})\n"
+                )
+
+                try:
+                    if schema_name:
+                        columns = inspector.get_columns(table, schema=schema_name)
+                    else:
+                        columns = inspector.get_columns(table)
+                except Exception:
+                    # Skip tables that error during column introspection
+                    schema_text += "   (Unable to retrieve column information)\n\n"
+                    continue
+
+                for col in columns:
+                    col_metadata = table_metadata.get("columns", {}).get(
+                        col["name"], {}
+                    )
+                    col_desc = col_metadata.get("description", "")
+                    col_example = col_metadata.get("example", "")
+                    col_hidden = col_metadata.get("hidden", False)
+
+                    if not col_hidden:
+                        col_type = str(col["type"])
+                        schema_text += f"   - {col['name']} ({col_type})"
+
+                        if col_desc:
+                            schema_text += f" - {col_desc}"
+                        if col_example:
+                            schema_text += f" (e.g., {col_example})"
+
+                        schema_text += "\n"
+
+                schema_text += "\n"
+
+                # Fetch sample rows
+                if not with_examples:
+                    continue
+
+                try:
+                    # Build qualified table name for query
+                    query_table_name = full_table_name if schema_name else table
+                    # Use database-specific optimized sampling
+                    sample_query = get_sample_query(query_table_name, engine)
+                    res = conn.execute(text(sample_query))
+                except Exception:
+                    # Skip tables that timeout or fail to query
+                    continue
+
+                # skip columns which are marked as hidden in descriptions
+                columns = res.keys()
+                # Filter out hidden columns
+                visible_columns = [
+                    col
+                    for col in columns
+                    if not table_metadata.get("columns", {})
+                    .get(col, {})
+                    .get("hidden", False)
+                ]
+
+                # Get indexes of visible columns to filter row values
+                visible_indexes = [
+                    i for i, col in enumerate(columns) if col in visible_columns
+                ]
+
+                # Fetch sample rows with only visible columns
+                rows = [
+                    {col: row[i] for col, i in zip(visible_columns, visible_indexes)}
+                    for row in res.fetchall()
+                ]
+                if rows:
+                    # rows_str = [{k: str(v) for k, v in row.items()} for row in rows]
+                    schema_text += (
+                        "\nSample Data Rows (CSVs):\n"
+                        + "\n".join(",".join(map(str, row.values())) for row in rows)
+                        + "\n\n"
+                    )
 
     return schema_text
 
@@ -228,6 +364,7 @@ def get_db_schema() -> DbSchema:
     settings = get_settings()
     engine = get_db()
     inspector = inspect(engine)
+    dialect = engine.dialect.name.lower()
     repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
     client = settings.client
     env = settings.env
@@ -239,8 +376,7 @@ def get_db_schema() -> DbSchema:
     # Defensive: handle missing 'profiles' key or missing profile
     if "profiles" not in file:
         raise ValueError(
-            f"schema_descriptions.yaml missing 'profiles' key. "
-            f"File content: {file}"
+            f"schema_descriptions.yaml missing 'profiles' key. File content: {file}"
         )
     if profile not in file["profiles"]:
         available_profiles = list(file["profiles"].keys())
@@ -254,34 +390,94 @@ def get_db_schema() -> DbSchema:
     result: DbSchema = {}
 
     with engine.connect():
-        for idx, table in enumerate(inspector.get_table_names()):
-            if table.startswith("_"):  # Skip system/internal tables
+        # Get all schemas/databases
+        try:
+            schema_names = inspector.get_schema_names()
+        except Exception:
+            # Fallback for databases that don't support get_schema_names
+            schema_names = [None]
+
+        # Filter out system schemas based on dialect
+        if dialect == "clickhouse":
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and not s.startswith("_")
+                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+            ]
+        elif dialect in ("postgresql", "postgres"):
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and s
+                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
+            ]
+        elif dialect == "trino":
+            pass  # Keep all schemas for Trino
+
+        # If no schemas found or dialect doesn't support schemas, use None
+        if not schema_names:
+            schema_names = [None]
+
+        for schema_name in schema_names:
+            try:
+                if schema_name:
+                    table_names = inspector.get_table_names(schema=schema_name)
+                else:
+                    table_names = inspector.get_table_names()
+            except Exception:
                 continue
 
-            table_metadata = descriptions.get("tables", {}).get(table, {})
-            if table_metadata.get("hidden", False):
-                continue
+            for table in table_names:
+                if table.startswith("_") or table.startswith("temp_"):
+                    continue
 
-            db_columns = inspector.get_columns(table)
-            columns = {}
-            for col in db_columns:
-                col_metadata = table_metadata.get("columns", {}).get(col["name"], {})
-                col_desc = col_metadata.get("description", "")
-                col_example = col_metadata.get("example", "")
-                col_hidden = col_metadata.get("hidden", False)
+                # Lookup table metadata with fallback
+                table_metadata = _get_table_metadata_with_fallback(
+                    descriptions, table, schema_name, catalog_name=None
+                )
 
-                if not col_hidden:
-                    columns[col["name"]] = DbColumn(
-                        name=col["name"],
-                        type=str(col["type"]),
-                        description=col_desc,
-                        example=col_example,
+                # Check if table should be included
+                if not _should_include_table(descriptions, table_metadata):
+                    continue
+
+                try:
+                    if schema_name:
+                        db_columns = inspector.get_columns(table, schema=schema_name)
+                    else:
+                        db_columns = inspector.get_columns(table)
+                except Exception:
+                    continue
+
+                columns = {}
+                for col in db_columns:
+                    col_metadata = table_metadata.get("columns", {}).get(
+                        col["name"], {}
                     )
+                    col_desc = col_metadata.get("description", "")
+                    col_example = col_metadata.get("example", "")
+                    col_hidden = col_metadata.get("hidden", False)
 
-            result[table] = DbTable(
-                columns=columns,
-                description=table_metadata.get("description", None),
-            )
+                    if not col_hidden:
+                        columns[col["name"]] = DbColumn(
+                            name=col["name"],
+                            type=str(col["type"]),
+                            description=col_desc,
+                            example=col_example,
+                        )
+
+                # Build fully qualified table name for result key
+                if schema_name:
+                    full_table_name = f"{schema_name}.{table}"
+                else:
+                    full_table_name = table
+
+                result[full_table_name] = DbTable(
+                    columns=columns,
+                    description=table_metadata.get("description", None),
+                )
 
     return result
 
@@ -290,51 +486,128 @@ def get_data_samples() -> dict[str, Any]:
     settings = get_settings()
     engine = get_db()
     inspector = inspect(engine)
-    descriptions = load_yaml_descriptions(settings.schema_descriptions_file)
+    dialect = engine.dialect.name.lower()
+    repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
+    client = settings.client
+    env = settings.env
+    profile = settings.default_profile
+    tree = assemble_effective_tree(repo_root, profile, client, env)
+
+    file = load_yaml(tree, "resources/schema_descriptions.yaml")
+
+    # Defensive: handle missing 'profiles' key or missing profile
+    if "profiles" not in file:
+        raise ValueError(
+            f"schema_descriptions.yaml missing 'profiles' key. File content: {file}"
+        )
+    if profile not in file["profiles"]:
+        available_profiles = list(file["profiles"].keys())
+        raise ValueError(
+            f"Profile '{profile}' not found in schema_descriptions.yaml. "
+            f"Available profiles: {available_profiles}"
+        )
+
+    descriptions = file["profiles"][profile]
 
     result = {}
 
     with engine.connect() as conn:
-        for idx, table in enumerate(inspector.get_table_names()):
-            if table.startswith("_"):  # Skip system/internal tables
-                continue
+        # Get all schemas/databases
+        try:
+            schema_names = inspector.get_schema_names()
+        except Exception:
+            # Fallback for databases that don't support get_schema_names
+            schema_names = [None]
 
-            table_metadata = descriptions.get("tables", {}).get(table, {})
-            if table_metadata.get("hidden", False):
-                continue
+        # Filter out system schemas based on dialect
+        if dialect == "clickhouse":
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and not s.startswith("_")
+                and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+            ]
+        elif dialect in ("postgresql", "postgres"):
+            schema_names = [
+                s
+                for s in schema_names
+                if s
+                and s
+                not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
+            ]
+        elif dialect == "trino":
+            pass  # Keep all schemas for Trino
 
+        # If no schemas found or dialect doesn't support schemas, use None
+        if not schema_names:
+            schema_names = [None]
+
+        for schema_name in schema_names:
             try:
-                # Use database-specific optimized sampling
-                sample_query = get_sample_query(table, engine)
-                res = conn.execute(text(sample_query))
+                if schema_name:
+                    table_names = inspector.get_table_names(schema=schema_name)
+                else:
+                    table_names = inspector.get_table_names()
             except Exception:
-                # Skip tables that timeout or fail to query
                 continue
 
-            # skip columns which are marked as hidden in descriptions
-            columns = res.keys()
-            # Filter out hidden columns
-            visible_columns = [
-                col
-                for col in columns
-                if not table_metadata.get("columns", {})
-                .get(col, {})
-                .get("hidden", False)
-            ]
+            for table in table_names:
+                if table.startswith("_") or table.startswith("temp_"):
+                    continue
 
-            # Get indexes of visible columns to filter row values
-            visible_indexes = [
-                i for i, col in enumerate(columns) if col in visible_columns
-            ]
+                # Lookup table metadata with fallback
+                table_metadata = _get_table_metadata_with_fallback(
+                    descriptions, table, schema_name, catalog_name=None
+                )
 
-            # Fetch sample rows with only visible columns
-            rows = [
-                {col: row[i] for col, i in zip(visible_columns, visible_indexes)}
-                for row in res.fetchall()
-            ]
+                # Check if table should be included
+                if not _should_include_table(descriptions, table_metadata):
+                    continue
 
-            if rows:
-                result[table] = rows
+                try:
+                    # Build qualified table name for query
+                    if schema_name:
+                        full_table_name = f"{schema_name}.{table}"
+                    else:
+                        full_table_name = table
+
+                    # Use database-specific optimized sampling
+                    sample_query = get_sample_query(full_table_name, engine)
+                    res = conn.execute(text(sample_query))
+                except Exception:
+                    # Skip tables that timeout or fail to query
+                    continue
+
+                # skip columns which are marked as hidden in descriptions
+                columns = res.keys()
+                # Filter out hidden columns
+                visible_columns = [
+                    col
+                    for col in columns
+                    if not table_metadata.get("columns", {})
+                    .get(col, {})
+                    .get("hidden", False)
+                ]
+
+                # Get indexes of visible columns to filter row values
+                visible_indexes = [
+                    i for i, col in enumerate(columns) if col in visible_columns
+                ]
+
+                # Fetch sample rows with only visible columns
+                rows = [
+                    {col: row[i] for col, i in zip(visible_columns, visible_indexes)}
+                    for row in res.fetchall()
+                ]
+
+                if rows:
+                    # Use fully qualified name as key
+                    if schema_name:
+                        full_table_name = f"{schema_name}.{table}"
+                    else:
+                        full_table_name = table
+                    result[full_table_name] = rows
 
     return result
 
@@ -359,17 +632,17 @@ def query_preflight(query: str) -> PreflightResult:
     dialect = engine.dialect.name.lower()
 
     # Determine appropriate EXPLAIN command for the dialect
-    if dialect == 'clickhouse':
+    if dialect == "clickhouse":
         # Use EXPLAIN instead of EXPLAIN ESTIMATE for better compatibility
         # EXPLAIN SYNTAX would be even safer but doesn't return execution info
         explain_command = "EXPLAIN"
-    elif dialect in ('postgresql', 'postgres'):
+    elif dialect in ("postgresql", "postgres"):
         # PostgreSQL EXPLAIN
         explain_command = "EXPLAIN"
-    elif dialect in ('mysql', 'mariadb'):
+    elif dialect in ("mysql", "mariadb"):
         # MySQL EXPLAIN
         explain_command = "EXPLAIN"
-    elif dialect == 'sqlite':
+    elif dialect == "sqlite":
         # SQLite uses EXPLAIN QUERY PLAN
         explain_command = "EXPLAIN QUERY PLAN"
     else:

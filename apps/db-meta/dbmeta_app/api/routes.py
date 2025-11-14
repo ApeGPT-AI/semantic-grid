@@ -68,6 +68,8 @@ async def prompt_items(
         {get_prompt_instructions_item(profile=db).text}
         {get_sql_dialect_item(profile=db).text}
     """
+    logging.info(f"prompt_items: {db_meta}")
+
     return db_meta
 
 
