@@ -1,5 +1,7 @@
 import useSWRInfinite from "swr/infinite";
 
+import { useDataFetch } from "@/app/contexts/DataFetchContext";
+
 export const UnauthorizedError = new Error("Unauthorized");
 
 type ApiResponse = {
@@ -7,59 +9,41 @@ type ApiResponse = {
   rows: any[];
 };
 
-const fetcher =
-  (abortController: AbortController) =>
+const createFetcher =
+  (
+    dataFetchContext: ReturnType<typeof useDataFetch>,
+    abortController: AbortController,
+  ) =>
   async (key: ReturnType<typeof getKey>): Promise<ApiResponse> => {
     // @ts-ignore
     const [url, id, offset, limit, sortBy, sortOrder] = key;
 
-    // Build URL with query params for SSE
-    const params = new URLSearchParams();
-    if (limit !== undefined) params.append("limit", String(limit));
-    if (offset !== undefined) params.append("offset", String(offset));
-    if (sortBy) params.append("sort_by", sortBy);
-    if (sortOrder) params.append("sort_order", sortOrder);
-
-    // Use Next.js proxy to handle authentication
-    const fullUrl = `/api/apegpt/data/sse/${id}${params.toString() ? `?${params.toString()}` : ""}`;
-
-    return new Promise((resolve, reject) => {
-      const eventSource = new EventSource(fullUrl);
+    return new Promise<ApiResponse>((resolve, reject) => {
+      const unsubscribe = dataFetchContext.subscribe(
+        {
+          id,
+          limit: limit ?? 100,
+          offset: offset ?? 0,
+          sortBy,
+          sortOrder,
+        },
+        {
+          onData: (data) => {
+            resolve(data);
+            unsubscribe();
+          },
+          onError: (error) => {
+            reject(new Error(error));
+            unsubscribe();
+          },
+        },
+      );
 
       // Handle abort signal
       abortController.signal.addEventListener("abort", () => {
-        eventSource.close();
+        unsubscribe();
         reject(new Error("Aborted"));
       });
-
-      eventSource.addEventListener("count", (e) => {
-        const data = JSON.parse(e.data);
-        // Count received, could update UI here if needed
-      });
-
-      eventSource.addEventListener("data", (e) => {
-        const data = JSON.parse(e.data);
-        eventSource.close();
-        resolve({
-          rows: data.rows,
-          total_rows: data.total_rows,
-        });
-      });
-
-      eventSource.addEventListener("error", (e: any) => {
-        const data = e.data ? JSON.parse(e.data) : { error: "Unknown error" };
-        eventSource.close();
-        reject(new Error(data.error || "Failed to fetch data"));
-      });
-
-      eventSource.onerror = (err) => {
-        // Only reject if readyState is CLOSED (2)
-        // readyState CONNECTING (0) or OPEN (1) means it's still trying/working
-        if (eventSource.readyState === EventSource.CLOSED) {
-          eventSource.close();
-          reject(new Error("Connection closed"));
-        }
-      };
     });
   };
 
@@ -102,12 +86,14 @@ export const useInfiniteQuery = ({
   sortOrder?: "asc" | "desc";
 }) => {
   // console.log("useInfiniteQuery req", id, sortBy, sortOrder);
+  const dataFetchContext = useDataFetch();
   const abortController = new AbortController();
+
   const { data, error, isLoading, size, setSize, mutate, isValidating } =
     useSWRInfinite<ApiResponse>(
       (pageIndex, prevData) =>
         getKey(pageIndex, prevData, id!, limit, sortBy, sortOrder, sql),
-      fetcher(abortController),
+      createFetcher(dataFetchContext, abortController),
       {
         revalidateIfStale: false,
         refreshInterval: 0,

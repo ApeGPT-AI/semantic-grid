@@ -10,6 +10,7 @@ import ApiErrorHandler from "@/app/components/ApiErrorHandler";
 import GlobalErrorHandler from "@/app/components/GlobalErrorHandler";
 import MuiXLicense from "@/app/components/MuiLicense";
 import { AppProvider } from "@/app/contexts/App";
+import { DataFetchProvider } from "@/app/contexts/DataFetchContext";
 import { FlexibleThemeProvider } from "@/app/contexts/Theme";
 import SWRProvider from "@/app/swr-provider";
 
@@ -41,12 +42,14 @@ const RootLayout = ({ children }: { children: React.ReactElement }) => (
         <FlexibleThemeProvider>
           <UserProvider>
             <SWRProvider>
-              <AppProvider>
-                {children}
-                <MuiXLicense />
-                <ApiErrorHandler />
-                <GlobalErrorHandler />
-              </AppProvider>
+              <DataFetchProvider>
+                <AppProvider>
+                  {children}
+                  <MuiXLicense />
+                  <ApiErrorHandler />
+                  <GlobalErrorHandler />
+                </AppProvider>
+              </DataFetchProvider>
             </SWRProvider>
           </UserProvider>
         </FlexibleThemeProvider>

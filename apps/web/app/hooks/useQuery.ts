@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 
+import { useDataFetch } from "@/app/contexts/DataFetchContext";
+
 export const UnauthorizedError = new Error("Unauthorized");
 
 const LS_KEY = "app-cache-freshness";
@@ -28,57 +30,39 @@ export const getFreshness = (key: string): number | null => {
   return typeof f[key] === "number" ? f[key] : null;
 };
 
-const fetcher = async ([url, id, limit, offset, sortBy, sortOrder]: [
-  url: string,
-  id: string,
-  limit?: number,
-  offset?: number,
-  sortBy?: string,
-  sortOrder?: "asc" | "desc",
-]) => {
-  // Build URL with query params
-  const params = new URLSearchParams();
-  if (limit !== undefined) params.append("limit", String(limit));
-  if (offset !== undefined) params.append("offset", String(offset));
-  if (sortBy) params.append("sort_by", sortBy);
-  if (sortOrder) params.append("sort_order", sortOrder);
-
-  // Use Next.js proxy to handle authentication
-  const fullUrl = `/api/apegpt/data/sse/${id}${params.toString() ? `?${params.toString()}` : ""}`;
-
-  return new Promise((resolve, reject) => {
-    const eventSource = new EventSource(fullUrl);
-    let totalRows = 0;
-
-    eventSource.addEventListener("count", (e) => {
-      const data = JSON.parse(e.data);
-      totalRows = data.total_rows;
-    });
-
-    eventSource.addEventListener("data", (e) => {
-      const data = JSON.parse(e.data);
-      eventSource.close();
-      resolve({
-        rows: data.rows,
-        total_rows: data.total_rows,
-      });
-    });
-
-    eventSource.addEventListener("error", (e: any) => {
-      const data = e.data ? JSON.parse(e.data) : { error: "Unknown error" };
-      eventSource.close();
-      reject(new Error(data.error || "Failed to fetch data"));
-    });
-
-    eventSource.onerror = (err) => {
-      // Only reject if readyState is CLOSED (2)
-      // readyState CONNECTING (0) or OPEN (1) means it's still trying/working
-      if (eventSource.readyState === EventSource.CLOSED) {
-        eventSource.close();
-        reject(new Error("Connection closed"));
-      }
-    };
-  });
+const createFetcher = (dataFetchContext: ReturnType<typeof useDataFetch>) => {
+  return async ([url, id, limit, offset, sortBy, sortOrder]: [
+    url: string,
+    id: string,
+    limit?: number,
+    offset?: number,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc",
+  ]) => {
+    return new Promise<{ rows: any[]; total_rows: number }>(
+      (resolve, reject) => {
+        const unsubscribe = dataFetchContext.subscribe(
+          {
+            id,
+            limit: limit ?? 100,
+            offset: offset ?? 0,
+            sortBy,
+            sortOrder,
+          },
+          {
+            onData: (data) => {
+              resolve(data);
+              unsubscribe();
+            },
+            onError: (error) => {
+              reject(new Error(error));
+              unsubscribe();
+            },
+          },
+        );
+      },
+    );
+  };
 };
 
 // Remove non-ASCII characters to avoid 400 error from API
@@ -101,19 +85,25 @@ export const useQuery = ({
 }) => {
   const { mutate: mutateCache } = useSWRConfig();
   const [force, setForce] = useState<boolean>(false);
+  const dataFetchContext = useDataFetch();
 
   // console.log("useQuery", id, limit, offset, sortBy, sortOrder);
   // const sqlHash = sql ? btoa(sanitize(sql)) : "";
   const key = id
     ? [`/api/apegpt/data/sse`, id, limit, offset, sortBy, sortOrder]
     : null;
+
+  const fetcher = useMemo(
+    () => createFetcher(dataFetchContext),
+    [dataFetchContext],
+  );
+
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     key,
     fetcher,
     {
-      keepPreviousData: true,
+      keepPreviousData: true, // Keep showing old data while fetching new data
       shouldRetryOnError: false,
-      // cacheTime: 0,
       revalidateOnFocus: false,
       revalidateOnMount: true,
       revalidateOnReconnect: false,
@@ -145,10 +135,13 @@ export const useQuery = ({
     [isValidating, force],
   );
 
+  // Show loading only when there's no data yet (initial fetch)
+  const isInitialLoading = useMemo(() => isLoading && !data, [isLoading, data]);
+
   return {
     data,
     error,
-    isLoading,
+    isLoading: isInitialLoading, // Only true during initial fetch with no data
     isValidating,
     isRefreshing,
     mutate,

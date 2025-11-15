@@ -110,7 +110,7 @@ export const DashboardTableItem = ({
       rows={rows}
       // rowCount={rowCount}
       columns={gridColumns}
-      loading={isLoading || queryObjectIsLoading || isRefreshing} // isLoading ? true : false
+      loading={isLoading || queryObjectIsLoading} // Show spinner only during initial load, not during background refresh
       hideFooterPagination
       slots={{
         noRowsOverlay: () => (

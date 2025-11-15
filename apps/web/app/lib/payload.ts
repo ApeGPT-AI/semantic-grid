@@ -14,6 +14,8 @@ export const getFromPayloadById = async (collection: string, id: string) => {
       "Content-Type": "application/json",
       "x-api-key": process.env.PAYLOAD_API_KEY,
     } as any,
+    cache: "no-store", // Disable Next.js fetch cache
+    next: { revalidate: 0 }, // Disable Next.js data cache
   });
   if (!res.ok) {
     throw new Error(
@@ -33,6 +35,8 @@ export const getFromPayload = async (collection: string, query?: string) => {
       "Content-Type": "application/json",
       "x-api-key": process.env.PAYLOAD_API_KEY,
     } as any,
+    cache: "no-store", // Disable Next.js fetch cache
+    next: { revalidate: 0 }, // Disable Next.js data cache
   });
   if (!res.ok) {
     throw new Error(
