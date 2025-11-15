@@ -89,3 +89,5 @@ export const GET = async (
 export const dynamic = "force-dynamic";
 // Disable response caching
 export const revalidate = 0;
+// Set max duration for SSE streaming (in seconds)
+export const maxDuration = 300; // 5 minutes

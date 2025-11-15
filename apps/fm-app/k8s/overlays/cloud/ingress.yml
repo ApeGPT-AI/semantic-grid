@@ -5,6 +5,9 @@ metadata:
   namespace: prod
   annotations:
     nginx.ingress.kubernetes.io/use-http2: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
 spec:
   ingressClassName: external-nginx
   tls:
