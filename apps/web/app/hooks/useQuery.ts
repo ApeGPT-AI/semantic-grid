@@ -105,7 +105,7 @@ export const useQuery = ({
   // console.log("useQuery", id, limit, offset, sortBy, sortOrder);
   // const sqlHash = sql ? btoa(sanitize(sql)) : "";
   const key = id
-    ? [`/api/apegpt/data`, id, limit, offset, sortBy, sortOrder]
+    ? [`/api/apegpt/data/sse`, id, limit, offset, sortBy, sortOrder]
     : null;
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     key,

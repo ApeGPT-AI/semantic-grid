@@ -79,7 +79,7 @@ const getKey = (
   if (previousPageData && previousPageData.rows.length === 0) return null; // no more pages
   const offset = pageIndex * limit;
   return [
-    `/api/apegpt/data`,
+    `/api/apegpt/data/sse`,
     id,
     offset,
     limit,
