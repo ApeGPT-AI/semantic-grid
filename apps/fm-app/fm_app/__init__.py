@@ -21,7 +21,14 @@ app.include_router(api_router, prefix="/api/v1")
 # Add the CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with specific origins in production
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://apegpt.ai",
+        "https://www.apegpt.ai",
+        "https://beta.apegpt.ai",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

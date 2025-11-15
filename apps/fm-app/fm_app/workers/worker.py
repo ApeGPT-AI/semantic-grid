@@ -141,9 +141,19 @@ def create_wh_engine(driver: str, url: str):
     return wh_engine
 
 
-app = Celery("ai_handler", broker=settings.wrk_broker_connection)
+app = Celery(
+    "ai_handler",
+    broker=settings.wrk_broker_connection,
+)
 
-app.conf.update(broker_connection_retry_on_startup=True)
+# Use PostgreSQL as result backend
+result_backend_url = f"db+postgresql://{settings.database_user}:{settings.database_pass}@{settings.database_server}:{settings.database_port}/{settings.database_db}"
+
+app.conf.update(
+    broker_connection_retry_on_startup=True,
+    result_backend=result_backend_url,
+    result_expires=3600,  # Results expire after 1 hour
+)
 
 normalized_driver = normalize_database_driver(settings.database_wh_driver)
 
@@ -467,3 +477,117 @@ async def _wrk_add_request(args):
 
     # finally:
     #    return request
+
+
+@app.task(name="wrk_fetch_data", bind=True)
+def wrk_fetch_data(self, args):
+    """
+    Background task for fetching data from warehouse.
+    Args:
+        args: dict with keys:
+            - query_id: str (UUID)
+            - sql: str (the SQL query to execute)
+            - limit: int
+            - offset: int
+            - sort_by: Optional[str]
+            - sort_order: str
+    Returns:
+        dict with keys:
+            - status: "success" | "error"
+            - rows: list[dict] (if success)
+            - total_rows: int (if success)
+            - error: str (if error)
+    """
+    from sqlalchemy import text
+
+    query_id = args.get("query_id")
+    sql = args.get("sql")
+    limit = args.get("limit", 100)
+    offset = args.get("offset", 0)
+    sort_by = args.get("sort_by")
+    sort_order = args.get("sort_order", "asc")
+
+    logger.info(
+        "Fetching data",
+        query_id=query_id,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+    )
+
+    try:
+        # Phase 1: Get total count (fast)
+        count_sql = f"SELECT COUNT(*) as total FROM ({sql}) AS count_query"
+
+        with ENGINE_WH_V2.connect() as conn:
+            count_result = conn.execute(text(count_sql))
+            total_count = count_result.fetchone()[0]
+
+            logger.info(
+                "Got total count",
+                query_id=query_id,
+                total_rows=total_count,
+            )
+
+            # Update task state with count so SSE can emit it
+            self.update_state(
+                state="COUNTING_COMPLETE",
+                meta={
+                    "status": "counting_complete",
+                    "query_id": query_id,
+                    "total_rows": total_count,
+                },
+            )
+
+        # Phase 2: Fetch actual data
+        from fm_app.api.routes import build_sorted_paginated_sql
+
+        # Build the paginated SQL (no need for total_count now)
+        combined_sql = build_sorted_paginated_sql(
+            sql,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_total_count=False,  # We already have it
+        )
+
+        # Execute using the warehouse engine
+        with ENGINE_WH_V2.connect() as conn:
+            result = conn.execute(
+                text(combined_sql),
+                {
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+            # Convert to dicts
+            columns = result.keys()
+            rows = [dict(zip(columns, row)) for row in result.fetchall()]
+
+            logger.info(
+                "Data fetched successfully",
+                query_id=query_id,
+                row_count=len(rows),
+                total_rows=total_count,
+            )
+
+            return {
+                "status": "success",
+                "query_id": query_id,
+                "rows": rows,
+                "total_rows": total_count,
+                "limit": limit,
+                "offset": offset,
+            }
+
+    except Exception as e:
+        logger.error(
+            f"Error fetching data: {e}",
+            query_id=query_id,
+            exc_info=True,
+        )
+        return {
+            "status": "error",
+            "query_id": query_id,
+            "error": str(e),
+        }

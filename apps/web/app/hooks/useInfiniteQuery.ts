@@ -13,18 +13,54 @@ const fetcher =
     // @ts-ignore
     const [url, id, offset, limit, sortBy, sortOrder] = key;
 
-    let fullUrl = `${url}/${id}`;
+    // Build URL with query params for SSE
     const params = new URLSearchParams();
     if (limit !== undefined) params.append("limit", String(limit));
     if (offset !== undefined) params.append("offset", String(offset));
     if (sortBy) params.append("sort_by", sortBy);
     if (sortOrder) params.append("sort_order", sortOrder);
-    if ([...params].length > 0) fullUrl += `?${params.toString()}`;
 
-    const res = await fetch(fullUrl, { signal: abortController.signal });
-    if (!res.ok) throw UnauthorizedError;
+    // Use Next.js proxy to handle authentication
+    const fullUrl = `/api/apegpt/data/sse/${id}${params.toString() ? `?${params.toString()}` : ""}`;
 
-    return res.json();
+    return new Promise((resolve, reject) => {
+      const eventSource = new EventSource(fullUrl);
+
+      // Handle abort signal
+      abortController.signal.addEventListener("abort", () => {
+        eventSource.close();
+        reject(new Error("Aborted"));
+      });
+
+      eventSource.addEventListener("count", (e) => {
+        const data = JSON.parse(e.data);
+        // Count received, could update UI here if needed
+      });
+
+      eventSource.addEventListener("data", (e) => {
+        const data = JSON.parse(e.data);
+        eventSource.close();
+        resolve({
+          rows: data.rows,
+          total_rows: data.total_rows,
+        });
+      });
+
+      eventSource.addEventListener("error", (e: any) => {
+        const data = e.data ? JSON.parse(e.data) : { error: "Unknown error" };
+        eventSource.close();
+        reject(new Error(data.error || "Failed to fetch data"));
+      });
+
+      eventSource.onerror = (err) => {
+        // Only reject if readyState is CLOSED (2)
+        // readyState CONNECTING (0) or OPEN (1) means it's still trying/working
+        if (eventSource.readyState === EventSource.CLOSED) {
+          eventSource.close();
+          reject(new Error("Connection closed"));
+        }
+      };
+    });
   };
 
 const getKey = (

@@ -1485,6 +1485,186 @@ async def get_query_data(
                 )
 
 
+@api_router.get("/data/sse/{query_id}")
+async def stream_data_fetch(
+    query_id: UUID,
+    request: Request,
+    limit: int = 100,
+    offset: int = 0,
+    sort_by: Optional[str] = None,
+    sort_order: str = Query("asc", regex="^(asc|desc)$"),
+    db: AsyncSession = Depends(get_db),
+    auth_result: dict = Depends(verify_any_token),
+):
+    """
+    SSE endpoint for async data fetching.
+
+    Flow:
+    1. Validates query and auth
+    2. Launches Celery task for data fetching
+    3. Streams progress events to client
+    4. Returns final data when ready
+    """
+    user_owner = auth_result.get("sub")
+    if user_owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No user name"
+        )
+
+    # Get SQL from query metadata
+    sql = ""
+    query_response = await get_query_by_id(query_id=query_id, db=db)
+    if query_response:
+        sql = query_response.sql if query_response.sql else ""
+        sql = sql.strip().rstrip(";")
+
+        # Validate sort_by
+        if sort_by:
+            is_valid, result = validate_sort_column(sort_by, query_response.columns)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=result)
+            sort_by = result
+    else:
+        # Try request
+        request_response = await get_request_by_id(
+            request_id=query_id, db=db, user_owner=""
+        )
+        if request_response and request_response.query:
+            sql = request_response.query.sql if request_response.query.sql else ""
+            sql = sql.strip().rstrip(";")
+            if sort_by:
+                is_valid, result = validate_sort_column(
+                    sort_by, request_response.query.columns
+                )
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=result)
+                sort_by = result
+        else:
+            # Try session
+            session_response = await get_session_by_id(session_id=query_id, db=db)
+            if session_response and session_response.metadata:
+                sql = session_response.metadata.get("sql", "").strip().rstrip(";")
+                columns = session_response.metadata.get("columns", [])
+                if sort_by:
+                    is_valid, result = validate_sort_column(sort_by, columns)
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=result)
+                    sort_by = result
+            else:
+                raise HTTPException(status_code=404, detail="Query not found")
+
+    if not sql:
+        raise HTTPException(status_code=400, detail="Query has no SQL attached")
+
+    # Launch Celery task
+    from fm_app.workers.worker import wrk_fetch_data
+
+    task_args = {
+        "query_id": str(query_id),
+        "sql": sql,
+        "limit": limit,
+        "offset": offset,
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+    }
+
+    task = wrk_fetch_data.apply_async(args=[task_args])
+    task_id = task.id
+
+    async def event_generator():
+        """Stream task progress via SSE."""
+        import time
+
+        yield {
+            "event": "started",
+            "data": json.dumps(
+                {"task_id": task_id, "query_id": str(query_id), "status": "started"}
+            ),
+        }
+
+        # Poll task status
+        max_wait = 300  # 5 minutes max
+        start_time = time.time()
+        poll_interval = 0.5  # Poll every 500ms
+        count_sent = False  # Track if count event was sent
+
+        while time.time() - start_time < max_wait:
+            # Check if client disconnected
+            if await request.is_disconnected():
+                # Cancel the task if client disconnected
+                task.revoke(terminate=True)
+                break
+
+            # Check task status
+            result = task
+
+            # Check for counting complete state (only send once)
+            if result.state == "COUNTING_COMPLETE" and not count_sent:
+                meta = result.info
+                yield {
+                    "event": "count",
+                    "data": json.dumps(
+                        {
+                            "status": "counting_complete",
+                            "query_id": meta.get("query_id"),
+                            "total_rows": meta.get("total_rows"),
+                        }
+                    ),
+                }
+                count_sent = True
+
+            if result.ready():
+                # Task completed
+                task_result = result.get()
+
+                if task_result.get("status") == "success":
+                    yield {
+                        "event": "data",
+                        "data": json.dumps(
+                            {
+                                "status": "success",
+                                "query_id": task_result.get("query_id"),
+                                "rows": task_result.get("rows"),
+                                "total_rows": task_result.get("total_rows"),
+                                "limit": task_result.get("limit"),
+                                "offset": task_result.get("offset"),
+                            }
+                        ),
+                    }
+                else:
+                    yield {
+                        "event": "error",
+                        "data": json.dumps(
+                            {
+                                "status": "error",
+                                "error": task_result.get("error", "Unknown error"),
+                            }
+                        ),
+                    }
+                break
+
+            # Still running - send progress update
+            yield {
+                "event": "progress",
+                "data": json.dumps(
+                    {"status": "running", "elapsed": int(time.time() - start_time)}
+                ),
+            }
+
+            await asyncio.sleep(poll_interval)
+        else:
+            # Timeout
+            task.revoke(terminate=True)
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {"status": "error", "error": "Query execution timeout"}
+                ),
+            }
+
+    return EventSourceResponse(event_generator())
+
+
 @api_router.get("/query/{query_id}")
 async def get_query_metadata(
     query_id: UUID,

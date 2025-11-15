@@ -36,22 +36,49 @@ const fetcher = async ([url, id, limit, offset, sortBy, sortOrder]: [
   sortBy?: string,
   sortOrder?: "asc" | "desc",
 ]) => {
-  let fullUrl = `${url}/${id}`;
-  if (limit || offset || sortBy || sortOrder) {
-    fullUrl += `?`;
-    if (limit) fullUrl += `limit=${limit}&`;
-    if (offset) fullUrl += `offset=${offset}&`;
-    if (sortBy) fullUrl += `sort_by=${sortBy}&`;
-    if (sortOrder) fullUrl += `sort_order=${sortOrder}&`;
-  }
-  if (fullUrl.endsWith("&")) {
-    fullUrl = fullUrl.slice(0, -1); // Remove trailing '&'
-  }
+  // Build URL with query params
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.append("limit", String(limit));
+  if (offset !== undefined) params.append("offset", String(offset));
+  if (sortBy) params.append("sort_by", sortBy);
+  if (sortOrder) params.append("sort_order", sortOrder);
 
-  const res = await fetch(fullUrl);
-  if (res.ok) return res.json();
+  // Use Next.js proxy to handle authentication
+  const fullUrl = `/api/apegpt/data/sse/${id}${params.toString() ? `?${params.toString()}` : ""}`;
 
-  throw UnauthorizedError;
+  return new Promise((resolve, reject) => {
+    const eventSource = new EventSource(fullUrl);
+    let totalRows = 0;
+
+    eventSource.addEventListener("count", (e) => {
+      const data = JSON.parse(e.data);
+      totalRows = data.total_rows;
+    });
+
+    eventSource.addEventListener("data", (e) => {
+      const data = JSON.parse(e.data);
+      eventSource.close();
+      resolve({
+        rows: data.rows,
+        total_rows: data.total_rows,
+      });
+    });
+
+    eventSource.addEventListener("error", (e: any) => {
+      const data = e.data ? JSON.parse(e.data) : { error: "Unknown error" };
+      eventSource.close();
+      reject(new Error(data.error || "Failed to fetch data"));
+    });
+
+    eventSource.onerror = (err) => {
+      // Only reject if readyState is CLOSED (2)
+      // readyState CONNECTING (0) or OPEN (1) means it's still trying/working
+      if (eventSource.readyState === EventSource.CLOSED) {
+        eventSource.close();
+        reject(new Error("Connection closed"));
+      }
+    };
+  });
 };
 
 // Remove non-ASCII characters to avoid 400 error from API

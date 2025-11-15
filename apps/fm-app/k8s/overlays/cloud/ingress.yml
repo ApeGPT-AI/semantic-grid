@@ -3,6 +3,8 @@ kind: Ingress
 metadata:
   name: fm-app-ingress
   namespace: prod
+  annotations:
+    nginx.ingress.kubernetes.io/use-http2: "true"
 spec:
   ingressClassName: external-nginx
   tls:
