@@ -50,7 +50,7 @@ settings = get_settings()
 DATABASE_URL = f"postgresql+asyncpg://{settings.database_user}:{settings.database_pass}@{settings.database_server}:{settings.database_port}/{settings.database_db}"
 
 engine = create_async_engine(
-    DATABASE_URL, pool_size=20, max_overflow=30, pool_pre_ping=True, pool_recycle=360
+    DATABASE_URL, pool_size=5, max_overflow=10, pool_pre_ping=True, pool_recycle=360
 )
 
 SESSION = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
@@ -69,8 +69,8 @@ if normalized_driver == "trino":
     wh_engine = create_engine(
         WH_URL,
         echo=True,
-        pool_size=20,
-        max_overflow=30,
+        pool_size=5,
+        max_overflow=10,
         pool_pre_ping=True,
         pool_recycle=360,
         connect_args={
@@ -85,8 +85,8 @@ else:
     logging.info(f"Starting {normalized_driver} session")
     wh_engine = create_engine(
         WH_URL,
-        pool_size=40,
-        max_overflow=60,
+        pool_size=10,
+        max_overflow=20,
         pool_pre_ping=True,
         pool_recycle=360,
     )

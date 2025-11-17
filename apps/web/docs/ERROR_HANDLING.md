@@ -4,7 +4,7 @@ This document describes the comprehensive error handling system implemented in t
 
 ## Overview
 
-The application uses a multi-layered error handling approach that catches errors at different levels and displays them using Material-UI components instead of the default Next.js error overlay. This provides a consistent, user-friendly experience across all error scenarios.
+The application uses a multi-layered error handling approach that catches errors at different levels and logs them to the browser console. This provides a non-intrusive way to handle errors while giving developers full visibility into issues through console logs.
 
 ## Architecture
 
@@ -39,10 +39,10 @@ The application uses a multi-layered error handling approach that catches errors
 **Purpose**: Catches catastrophic errors at the root level (outside all providers)
 
 **Behavior**:
-- Displays a full-page centered error UI
-- Uses inline styles (no MUI theme available at this level)
-- Provides "Try Again" and "Reload Page" buttons
-- Shows error message in a monospace box
+- Logs error details to the browser console
+- Does NOT display any UI (returns null)
+- Error message, stack trace, and digest are logged with `[GlobalError]` prefix
+- Prevents app from crashing while keeping UI unobtrusive
 
 **When it triggers**:
 - Root-level React errors
@@ -51,7 +51,7 @@ The application uses a multi-layered error handling approach that catches errors
 
 **Example**:
 ```tsx
-// This would trigger global-error.tsx
+// This would trigger global-error.tsx (logs to console only)
 throw new Error("Critical failure in root layout");
 ```
 
@@ -60,10 +60,10 @@ throw new Error("Critical failure in root layout");
 **Purpose**: Catches errors within the application (inside providers)
 
 **Behavior**:
-- Displays MUI Alert component in the page
-- Has access to full MUI theme
-- Shows collapsible error details with stack trace
-- Provides "Try Again", "Show Details", and "Reload Page" buttons
+- Logs error details to the browser console
+- Does NOT display any UI (returns null)
+- Error message, stack trace, and digest are logged with `[Error]` prefix
+- Allows application to continue running without intrusive error pages
 
 **When it triggers**:
 - React component render errors
@@ -73,7 +73,7 @@ throw new Error("Critical failure in root layout");
 
 **Example**:
 ```tsx
-// This would trigger error.tsx
+// This would trigger error.tsx (logs to console only)
 const Component = () => {
   throw new Error("Component render error");
 };
@@ -84,11 +84,10 @@ const Component = () => {
 **Purpose**: Catches uncaught JavaScript errors and promise rejections
 
 **Behavior**:
-- Displays errors as MUI Snackbar at **bottom-right** of screen
-- Stacks multiple errors vertically
-- Auto-dismisses after 10 seconds
-- Can be manually closed
-- Red "error" severity
+- Logs errors to the browser console
+- Does NOT display any UI (returns null)
+- Logs error message, stack trace, and location with `[GlobalErrorHandler]` prefix
+- Prevents default error handling to keep UI clean
 
 **When it triggers**:
 - Uncaught synchronous errors
@@ -98,7 +97,7 @@ const Component = () => {
 
 **Example**:
 ```tsx
-// These would trigger GlobalErrorHandler
+// These would trigger GlobalErrorHandler (logs to console only)
 onClick={() => {
   throw new Error("Uncaught error");
 }}
@@ -110,19 +109,17 @@ onClick={() => {
 
 ### 4. API Error Handler (`app/hooks/useApiErrorHandler.ts`)
 
-**Purpose**: Displays API/network errors when explicitly notified
+**Purpose**: Logs API/network errors when explicitly notified
 
 **Behavior**:
-- Displays errors as MUI Snackbar at **bottom-left** of screen
-- Stacks multiple errors vertically
-- Auto-dismisses after 8 seconds
-- Can be manually closed
-- Orange "warning" severity
-- Shows HTTP status code if available
+- Logs errors to the browser console
+- Does NOT display any UI (returns null)
+- Logs error message, HTTP status, and timestamp with `[ApiErrorHandler]` prefix
+- Useful for tracking API failures without interrupting user workflow
 
 **When it triggers**:
 - When `notifyApiError()` is called explicitly
-- Useful for SWR/fetch errors that need user notification
+- Useful for SWR/fetch errors that need logging
 
 **Usage**:
 ```tsx
@@ -141,14 +138,14 @@ try {
 
 ## Error Display Locations
 
-| Error Type | Location | Color | Auto-dismiss |
-|------------|----------|-------|--------------|
-| Runtime/JS errors | Bottom-right | Red | 10s |
-| Promise rejections | Bottom-right | Red | 10s |
-| API errors (notified) | Bottom-left | Orange | 8s |
-| React render errors | In-page Alert | Red | Manual |
-| Server errors | In-page Alert | Red | Manual |
-| Global catastrophic | Full-page | Red | Manual |
+| Error Type | Location | Display |
+|------------|----------|---------|
+| Runtime/JS errors | Console only | `[GlobalErrorHandler]` prefix |
+| Promise rejections | Console only | `[GlobalErrorHandler]` prefix |
+| API errors (notified) | Console only | `[ApiErrorHandler]` prefix |
+| React render errors | Console only | `[Error]` prefix |
+| Server errors | Console only | `[Error]` prefix |
+| Global catastrophic | Console only | `[GlobalError]` prefix |
 
 ## Server-Side Error Handling
 
@@ -218,15 +215,15 @@ bun run start
 
 A comprehensive test page is available at `/test-errors` with buttons to simulate different error scenarios:
 
-1. **Uncaught Synchronous Error** - Tests GlobalErrorHandler
-2. **Unhandled Promise Rejection** - Tests GlobalErrorHandler  
-3. **Render Error** - Tests error.tsx boundary
-4. **Async Error (setTimeout)** - Tests GlobalErrorHandler
-5. **Async Function Error** - Tests GlobalErrorHandler
-6. **Network Error** - Tests GlobalErrorHandler
-7. **Multiple Errors** - Tests stacked Snackbars
-8. **State Update Error** - Tests error.tsx boundary
-9. **Storage Quota Error** - Tests GlobalErrorHandler
+1. **Uncaught Synchronous Error** - Tests GlobalErrorHandler (console logs)
+2. **Unhandled Promise Rejection** - Tests GlobalErrorHandler (console logs)
+3. **Render Error** - Tests error.tsx boundary (console logs)
+4. **Async Error (setTimeout)** - Tests GlobalErrorHandler (console logs)
+5. **Async Function Error** - Tests GlobalErrorHandler (console logs)
+6. **Network Error** - Tests GlobalErrorHandler (console logs)
+7. **Multiple Errors** - Tests multiple console logs
+8. **State Update Error** - Tests error.tsx boundary (console logs)
+9. **Storage Quota Error** - Tests GlobalErrorHandler (console logs)
 
 **Access the test page**:
 ```
@@ -250,15 +247,15 @@ These errors are handled gracefully without user notification since the cache wi
 
 1. **Let React Error Boundaries catch it** (most common):
    ```tsx
-   // Just throw in components - error.tsx will catch it
+   // Just throw in components - error.tsx will catch and log it
    if (!data) {
      throw new Error("Data is required");
    }
    ```
 
-2. **Use notifyApiError for explicit API notifications**:
+2. **Use notifyApiError for explicit API error logging**:
    ```tsx
-   // When you want to show a user-friendly message
+   // When you want to log API errors with status codes
    if (!response.ok) {
      notifyApiError("Unable to save changes", response.status);
    }
@@ -273,7 +270,7 @@ These errors are handled gracefully without user notification since the cache wi
 
 4. **Let GlobalErrorHandler catch everything else**:
    ```tsx
-   // Uncaught errors automatically show as Snackbar
+   // Uncaught errors automatically logged to console
    setTimeout(() => {
      throw new Error("Background task failed");
    }, 1000);

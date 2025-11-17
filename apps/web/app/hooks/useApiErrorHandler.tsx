@@ -1,6 +1,4 @@
-import { Alert, AlertTitle, IconButton, Snackbar } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 interface ApiError {
   message: string;
@@ -12,7 +10,7 @@ let errorListeners: ((error: ApiError) => void)[] = [];
 
 /**
  * Global API error notifier
- * Call this from anywhere to show an API error as a snackbar
+ * Call this from anywhere to log an API error to the console
  */
 export const notifyApiError = (message: string, status?: number) => {
   const error: ApiError = {
@@ -24,15 +22,20 @@ export const notifyApiError = (message: string, status?: number) => {
 };
 
 /**
- * Hook to display API errors as MUI Snackbars
+ * Hook to log API errors to console
  * This automatically subscribes to API errors notified via notifyApiError
  */
 export const useApiErrorHandler = () => {
-  const [errors, setErrors] = useState<ApiError[]>([]);
-
   useEffect(() => {
     const listener = (error: ApiError) => {
-      setErrors((prev) => [...prev, error]);
+      console.error("[ApiErrorHandler] API Error:", error.message);
+      if (error.status) {
+        console.error("[ApiErrorHandler] HTTP Status:", error.status);
+      }
+      console.error(
+        "[ApiErrorHandler] Timestamp:",
+        new Date(error.timestamp).toISOString(),
+      );
     };
 
     errorListeners.push(listener);
@@ -42,44 +45,6 @@ export const useApiErrorHandler = () => {
     };
   }, []);
 
-  const handleClose = (timestamp: number) => {
-    setErrors((prev) => prev.filter((err) => err.timestamp !== timestamp));
-  };
-
-  return (
-    <>
-      {errors.map((error, index) => (
-        <Snackbar
-          key={error.timestamp}
-          open
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-          sx={{ bottom: { xs: 16 + index * 70, sm: 24 + index * 70 } }}
-          autoHideDuration={8000}
-          onClose={() => handleClose(error.timestamp)}
-        >
-          <Alert
-            severity="warning"
-            variant="filled"
-            onClose={() => handleClose(error.timestamp)}
-            action={
-              <IconButton
-                size="small"
-                aria-label="close"
-                color="inherit"
-                onClick={() => handleClose(error.timestamp)}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            }
-            sx={{ width: "100%", maxWidth: 500 }}
-          >
-            <AlertTitle>
-              {error.status ? `API Error (${error.status})` : "API Error"}
-            </AlertTitle>
-            {error.message}
-          </Alert>
-        </Snackbar>
-      ))}
-    </>
-  );
+  // Return null - no UI to display
+  return null;
 };

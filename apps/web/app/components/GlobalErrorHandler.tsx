@@ -1,38 +1,31 @@
 "use client";
 
-import { Alert, AlertTitle, IconButton, Snackbar } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import { useEffect, useState } from "react";
-
-interface ErrorInfo {
-  message: string;
-  timestamp: number;
-}
+import { useEffect } from "react";
 
 /**
  * Global error handler that catches unhandled errors and promise rejections
- * and displays them as MUI Snackbar alerts at the bottom of the screen.
+ * and logs them to the console (no UI display).
  */
 const GlobalErrorHandler = () => {
-  const [errors, setErrors] = useState<ErrorInfo[]>([]);
-
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
       event.preventDefault();
-      const errorMessage =
-        event.error?.message || event.message || "An unknown error occurred";
       console.error(
         "[GlobalErrorHandler] Uncaught error:",
         event.error || event.message,
       );
-
-      setErrors((prev) => [
-        ...prev,
-        {
-          message: errorMessage,
-          timestamp: Date.now(),
-        },
-      ]);
+      console.error(
+        "[GlobalErrorHandler] Error message:",
+        event.error?.message || event.message,
+      );
+      if (event.error?.stack) {
+        console.error("[GlobalErrorHandler] Error stack:", event.error.stack);
+      }
+      console.error("[GlobalErrorHandler] Error location:", {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
 
       // TODO: Send to error tracking service
       // Sentry.captureException(event.error);
@@ -40,19 +33,22 @@ const GlobalErrorHandler = () => {
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
-      const errorMessage =
-        event.reason?.message ||
-        String(event.reason) ||
-        "An unhandled promise rejection occurred";
-      console.error("[GlobalErrorHandler] Unhandled rejection:", event.reason);
-
-      setErrors((prev) => [
-        ...prev,
-        {
-          message: errorMessage,
-          timestamp: Date.now(),
-        },
-      ]);
+      console.error(
+        "[GlobalErrorHandler] Unhandled promise rejection:",
+        event.reason,
+      );
+      if (event.reason?.message) {
+        console.error(
+          "[GlobalErrorHandler] Rejection message:",
+          event.reason.message,
+        );
+      }
+      if (event.reason?.stack) {
+        console.error(
+          "[GlobalErrorHandler] Rejection stack:",
+          event.reason.stack,
+        );
+      }
 
       // TODO: Send to error tracking service
       // Sentry.captureException(event.reason);
@@ -70,44 +66,8 @@ const GlobalErrorHandler = () => {
     };
   }, []);
 
-  const handleClose = (timestamp: number) => {
-    setErrors((prev) => prev.filter((err) => err.timestamp !== timestamp));
-  };
-
-  return (
-    <>
-      {errors.map((error, index) => (
-        <Snackbar
-          key={error.timestamp}
-          open
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-          sx={{ bottom: { xs: 16 + index * 70, sm: 24 + index * 70 } }}
-          autoHideDuration={10000}
-          onClose={() => handleClose(error.timestamp)}
-        >
-          <Alert
-            severity="error"
-            variant="filled"
-            onClose={() => handleClose(error.timestamp)}
-            action={
-              <IconButton
-                size="small"
-                aria-label="close"
-                color="inherit"
-                onClick={() => handleClose(error.timestamp)}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            }
-            sx={{ width: "100%", maxWidth: 500 }}
-          >
-            <AlertTitle>Error</AlertTitle>
-            {error.message}
-          </Alert>
-        </Snackbar>
-      ))}
-    </>
-  );
+  // Return null - no UI to display
+  return null;
 };
 
 export default GlobalErrorHandler;

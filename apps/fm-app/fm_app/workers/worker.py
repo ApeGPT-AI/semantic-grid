@@ -117,8 +117,8 @@ def create_wh_engine(driver: str, url: str):
         wh_engine = create_engine(
             url,
             echo=True,
-            pool_size=20,
-            max_overflow=30,
+            pool_size=5,
+            max_overflow=10,
             pool_pre_ping=True,
             pool_recycle=360,
             connect_args={
@@ -133,8 +133,8 @@ def create_wh_engine(driver: str, url: str):
         logging.info(f"Starting {driver} session")
         wh_engine = create_engine(
             url,
-            pool_size=40,
-            max_overflow=60,
+            pool_size=10,
+            max_overflow=20,
             pool_pre_ping=True,
             pool_recycle=360,
         )
@@ -507,7 +507,7 @@ def wrk_fetch_data(self, args):
     sort_by = args.get("sort_by")
     sort_order = args.get("sort_order", "asc")
 
-    logger.info(
+    logger.debug(
         "Fetching data",
         query_id=query_id,
         limit=limit,
@@ -516,30 +516,7 @@ def wrk_fetch_data(self, args):
     )
 
     try:
-        # Phase 1: Get total count (fast)
-        count_sql = f"SELECT COUNT(*) as total FROM ({sql}) AS count_query"
-
-        with ENGINE_WH_V2.connect() as conn:
-            count_result = conn.execute(text(count_sql))
-            total_count = count_result.fetchone()[0]
-
-            logger.info(
-                "Got total count",
-                query_id=query_id,
-                total_rows=total_count,
-            )
-
-            # Update task state with count so SSE can emit it
-            self.update_state(
-                state="COUNTING_COMPLETE",
-                meta={
-                    "status": "counting_complete",
-                    "query_id": query_id,
-                    "total_rows": total_count,
-                },
-            )
-
-        # Phase 2: Fetch actual data
+        # Fetch actual data
         from fm_app.api.routes import build_sorted_paginated_sql
 
         # Build the paginated SQL (no need for total_count now)
@@ -547,7 +524,7 @@ def wrk_fetch_data(self, args):
             sql,
             sort_by=sort_by,
             sort_order=sort_order,
-            include_total_count=False,  # We already have it
+            include_total_count=settings,  # We already have it
         )
 
         # Execute using the warehouse engine
@@ -563,12 +540,15 @@ def wrk_fetch_data(self, args):
             # Convert to dicts
             columns = result.keys()
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
+            if rows:
+                total_count = rows[0].get("total_count", 0)
+            else:
+                total_count = 0
 
-            logger.info(
-                "Data fetched successfully",
+            logger.debug(
+                "Fetching data done",
                 query_id=query_id,
-                row_count=len(rows),
-                total_rows=total_count,
+                total_count=total_count,
             )
 
             return {
