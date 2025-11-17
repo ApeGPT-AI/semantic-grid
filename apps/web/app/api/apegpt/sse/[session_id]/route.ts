@@ -18,6 +18,7 @@ export async function GET(
   { params }: { params: { session_id: string } },
 ) {
   try {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { session_id } = params;
 
     // Get authentication token
@@ -39,8 +40,7 @@ export async function GET(
     }
 
     // Get backend URL from environment
-    const backendUrl =
-      process.env.APEGPT_API_URL || "http://localhost:8080";
+    const backendUrl = process.env.APEGPT_API_URL || "http://localhost:8080";
 
     // Connect to backend SSE endpoint
     const sseUrl = `${backendUrl}/api/v1/sse/${session_id}`;
