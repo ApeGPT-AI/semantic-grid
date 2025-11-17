@@ -540,8 +540,16 @@ def wrk_fetch_data(self, args):
             # Convert to dicts
             columns = result.keys()
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
+
+            # Extract total_count if present (case-insensitive for Trino)
             if rows:
-                total_count = rows[0].get("total_count", 0)
+                total_count = None
+                for k in rows[0].keys():
+                    if k.lower() == "total_count":
+                        total_count = rows[0].get(k, 0)
+                        break
+                if total_count is None:
+                    total_count = 0
             else:
                 total_count = 0
 
@@ -554,7 +562,10 @@ def wrk_fetch_data(self, args):
             return {
                 "status": "success",
                 "query_id": query_id,
-                "rows": rows,
+                "rows": [
+                    {k: v for k, v in row.items() if k.lower() != "total_count"}
+                    for row in rows
+                ],
                 "total_rows": total_count,
                 "limit": limit,
                 "offset": offset,

@@ -104,14 +104,12 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
         "flow_step_num": next(flow_step),
     }
 
-
     slot = await assembler.render_async(
         "interactive_query",
         variables=interactive_query_vars,
         req_ctx=mcp_ctx,
         mcp_caps=db_meta_caps,
     )
-
 
     query_llm_system_prompt = slot.prompt_text
 
@@ -137,7 +135,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             ai_request=messages,
         )
 
-
         try:
             llm_response = ai_model.get_structured(messages, QueryMetadata)
         except Exception as e:
@@ -153,7 +150,6 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 RequestStatus.error, req.err, db, req.request_id
             )
             return
-
 
         if ai_model.get_name() != "gemini":
             messages.append(
@@ -237,6 +233,10 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
 
         if new_metadata.get("sql") is not None:
             extracted_sql = new_metadata.get("sql")
+
+            # Strip trailing semicolon (breaks Trino subqueries and pagination)
+            extracted_sql = extracted_sql.strip().rstrip(";")
+
             logger.info(
                 "Extracted SQL",
                 flow_stage="extracted_sql",
@@ -244,11 +244,9 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 extracted_sql=extracted_sql,
             )
 
-
             analyzed = await db_meta_mcp_analyze_query(
                 req, extracted_sql, 5, settings, logger
             )
-
 
             if analyzed.get("explanation"):
                 explanation = analyzed.get("explanation")[0]
