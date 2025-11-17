@@ -47,8 +47,11 @@ def get_db() -> Engine:
         settings = get_settings()
         # Normalize driver to handle 'postgres' -> 'postgresql' conversion
         normalized_driver = normalize_database_driver(settings.database_wh_driver)
-        url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"  # noqa: E501
+
         if normalized_driver == "trino":
+            # For Trino: omit database from URL to enable federated access across catalogs
+            # Queries can reference any catalog.schema.table (e.g., dwh.public.subs, iceberg.analytics.events)
+            url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}{settings.database_wh_params_v2}"  # noqa: E501
             eng = create_engine(
                 url,
                 pool_size=20,
@@ -64,6 +67,9 @@ def get_db() -> Engine:
                 },
             )
             return eng
+
+        # For other databases (PostgreSQL, ClickHouse): include database in URL
+        url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"  # noqa: E501
         db = create_engine(
             url, pool_size=20, max_overflow=30, pool_pre_ping=True, pool_recycle=360
         )
