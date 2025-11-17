@@ -1,11 +1,15 @@
 import logging
 
+import urllib3
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 from trino.auth import BasicAuthentication
 
 from fm_app.config import get_settings
+
+# Disable urllib3 SSL warnings for Trino connections with verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def normalize_database_driver(driver: str) -> str:
@@ -68,7 +72,7 @@ if normalized_driver == "trino":
     logging.info("Starting Trino session")
     wh_engine = create_engine(
         WH_URL,
-        echo=True,
+        echo=False,  # Disable SQLAlchemy query logging
         pool_size=5,
         max_overflow=10,
         pool_pre_ping=True,

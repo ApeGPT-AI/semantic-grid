@@ -1,8 +1,12 @@
 import asyncio
 import logging
+import warnings
+from datetime import date, datetime
+from decimal import Decimal
 from logging.config import dictConfig
 
 import structlog
+import urllib3
 from celery import Celery
 from celery.signals import setup_logging
 from celery.utils.log import get_task_logger
@@ -11,6 +15,22 @@ from celery.utils.log import get_task_logger
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from trino.auth import BasicAuthentication
+
+# Disable urllib3 SSL warnings for Trino connections with verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def serialize_value(value):
+    """Convert non-JSON-serializable types to JSON-compatible formats."""
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    elif isinstance(value, Decimal):
+        return float(value)
+    elif value is None:
+        return None
+    else:
+        return value
+
 
 from fm_app.ai_models.llm import AnthropicModel, DeepSeekModel, GeminiModel, OpenAIModel
 from fm_app.api.db_session import normalize_database_driver
@@ -116,7 +136,7 @@ def create_wh_engine(driver: str, url: str):
         logging.info("Starting Trino session")
         wh_engine = create_engine(
             url,
-            echo=True,
+            echo=False,  # Disable SQLAlchemy query logging
             pool_size=5,
             max_overflow=10,
             pool_pre_ping=True,
@@ -563,7 +583,11 @@ def wrk_fetch_data(self, args):
                 "status": "success",
                 "query_id": query_id,
                 "rows": [
-                    {k: v for k, v in row.items() if k.lower() != "total_count"}
+                    {
+                        k: serialize_value(v)
+                        for k, v in row.items()
+                        if k.lower() != "total_count"
+                    }
                     for row in rows
                 ],
                 "total_rows": total_count,

@@ -1,7 +1,11 @@
+import urllib3
 from sqlalchemy import Engine, create_engine
 from trino.auth import BasicAuthentication
 
 from dbmeta_app.config import get_settings
+
+# Disable urllib3 SSL warnings for Trino connections with verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def normalize_database_driver(driver: str) -> str:

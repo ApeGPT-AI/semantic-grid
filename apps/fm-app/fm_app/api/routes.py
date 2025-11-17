@@ -6,6 +6,8 @@ import logging
 import os
 import re
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -75,6 +77,18 @@ IMAGE_DIR = "static/charts"
 HTML_DIR = "static/charts/html"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 os.makedirs(HTML_DIR, exist_ok=True)
+
+
+def serialize_value(value):
+    """Convert non-JSON-serializable types to JSON-compatible formats."""
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    elif isinstance(value, Decimal):
+        return float(value)
+    elif value is None:
+        return None
+    else:
+        return value
 
 
 def replace_order_by(sql: str, new_order_by: Optional[str]) -> str:
@@ -1422,7 +1436,11 @@ async def get_query_data(
                 limit=limit,
                 offset=offset,
                 rows=[
-                    {k: v for k, v in row.items() if k.lower() != "total_count"}
+                    {
+                        k: serialize_value(v)
+                        for k, v in row.items()
+                        if k.lower() != "total_count"
+                    }
                     for row in rows
                 ],
                 total_rows=total_count,
