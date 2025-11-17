@@ -237,6 +237,51 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             # Strip trailing semicolon (breaks Trino subqueries and pagination)
             extracted_sql = extracted_sql.strip().rstrip(";")
 
+            # Validate fully-qualified table names for Trino
+            if warehouse_dialect == "trino":
+                # Check if SQL contains unqualified table names in FROM/JOIN clauses
+                # Pattern: FROM/JOIN followed by table name without catalog.schema prefix
+                unqualified_pattern = (
+                    r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\.)"
+                )
+                unqualified_matches = re.findall(
+                    unqualified_pattern, extracted_sql, re.IGNORECASE
+                )
+
+                if unqualified_matches:
+                    # Filter out SQL keywords that might match
+                    sql_keywords = {"SELECT", "WHERE", "UNNEST", "LATERAL", "VALUES"}
+                    actual_unqualified = [
+                        m for m in unqualified_matches if m.upper() not in sql_keywords
+                    ]
+
+                    if actual_unqualified:
+                        logger.warning(
+                            "Unqualified table names detected in Trino SQL",
+                            flow_stage="sql_validation",
+                            flow_step_num=next(flow_step),
+                            unqualified_tables=actual_unqualified,
+                        )
+
+                        if attempt < 3:
+                            validation_error_msg = (
+                                f"SQL validation error: Trino requires fully-qualified table names.\n\n"
+                                f"Found unqualified table(s): {', '.join(actual_unqualified)}\n\n"
+                                f"Please use format: catalog.schema.table_name\n"
+                                f"Example: dwh.public.subs (NOT just 'subs')\n\n"
+                                f"Rewrite the SQL query with fully-qualified table names."
+                            )
+
+                            messages.append(
+                                {
+                                    "role": "system",
+                                    "content": validation_error_msg,
+                                }
+                            )
+
+                            attempt += 1
+                            continue
+
             logger.info(
                 "Extracted SQL",
                 flow_stage="extracted_sql",

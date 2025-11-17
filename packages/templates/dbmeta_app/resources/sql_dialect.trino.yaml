@@ -8,6 +8,21 @@ profiles:
     - Generated SQL has to be compatible with Trino SQL dialect.
 
     - |
+      **CRITICAL**: Always use fully-qualified table names in Trino queries.
+      Format: catalog.schema.table_name
+      Example: dwh.public.subs (NOT just "subs")
+
+      This is required because:
+      - Trino supports federated queries across multiple catalogs
+      - Unqualified table names may resolve to wrong catalog/schema
+      - Queries wrapped in subqueries (for pagination) will fail without full qualification
+
+      Always write:
+        SELECT * FROM dwh.public.subs ✓
+      Never write:
+        SELECT * FROM subs ✗
+
+    - |
       Trino supports FULL OUTER JOIN and RIGHT JOIN.
       These are valid SQL constructs in Trino.
 
