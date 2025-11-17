@@ -151,37 +151,97 @@ interface PollResponse {
 export const pollForResponse = (
   { sessionId, seqNum }: { sessionId: string; seqNum: number },
   interval = 1000,
+  maxRetries = 30,
 ): PollResponse => {
   let statusCallback: (status: TResponseResult) => void = () => {};
 
   // eslint-disable-next-line no-async-promise-executor
   const waitForDone = new Promise<TChatMessage>(async (resolve, reject) => {
+    let retries = 0;
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
+
     try {
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        // eslint-disable-next-line no-await-in-loop
-        const result: TResponseResult = await fetch(
-          `/api/apegpt/message?sessionId=${sessionId}&seqNum=${seqNum}`,
-        ).then((r) => r.json());
-
-        console.log("Polling result:", result.status);
-        statusCallback(result); // emit update
-
-        if (result.status === "Error") {
-          reject(result.err);
+        if (retries >= maxRetries) {
+          console.error(
+            `[Polling] Max retries (${maxRetries}) reached, stopping`,
+          );
+          reject(new Error("Polling timeout: maximum retries reached"));
           return;
         }
 
-        if (result.status === "Done" || result.status === "Cancelled") {
-          resolve(responseToSuccessBotMessage(result));
-          return;
-        }
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const response = await fetch(
+            `/api/apegpt/message?sessionId=${sessionId}&seqNum=${seqNum}`,
+          );
 
-        // eslint-disable-next-line no-await-in-loop
-        await wait(interval);
+          if (!response.ok) {
+            consecutiveErrors++;
+            console.error(
+              `[Polling] HTTP ${response.status}: ${response.statusText} (error ${consecutiveErrors}/${maxConsecutiveErrors})`,
+            );
+
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              reject(
+                new Error(
+                  `API error: ${response.status} ${response.statusText}`,
+                ),
+              );
+              return;
+            }
+
+            // Wait longer on errors with exponential backoff
+            // eslint-disable-next-line no-await-in-loop
+            await wait(interval * Math.pow(2, consecutiveErrors - 1));
+            retries++;
+            continue;
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          const result: TResponseResult = await response.json();
+
+          // Reset consecutive errors on success
+          consecutiveErrors = 0;
+
+          console.log("Polling result:", result.status);
+          statusCallback(result); // emit update
+
+          if (result.status === "Error") {
+            reject(result.err);
+            return;
+          }
+
+          if (result.status === "Done" || result.status === "Cancelled") {
+            resolve(responseToSuccessBotMessage(result));
+            return;
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          await wait(interval);
+          retries++;
+        } catch (fetchError) {
+          consecutiveErrors++;
+          console.error(
+            `[Polling] Fetch error (${consecutiveErrors}/${maxConsecutiveErrors}):`,
+            fetchError,
+          );
+
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            reject(new Error("Network error: unable to reach API"));
+            return;
+          }
+
+          // Wait longer on errors with exponential backoff
+          // eslint-disable-next-line no-await-in-loop
+          await wait(interval * Math.pow(2, consecutiveErrors - 1));
+          retries++;
+        }
       }
     } catch (error) {
-      console.error("An error during polling:", error);
+      console.error("[Polling] Unexpected error:", error);
       reject(error);
     }
   });
