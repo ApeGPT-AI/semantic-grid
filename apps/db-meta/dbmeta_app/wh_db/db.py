@@ -49,9 +49,10 @@ def get_db() -> Engine:
         normalized_driver = normalize_database_driver(settings.database_wh_driver)
 
         if normalized_driver == "trino":
-            # For Trino: omit database from URL to enable federated access across catalogs
-            # Queries can reference any catalog.schema.table (e.g., dwh.public.subs, iceberg.analytics.events)
-            url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}{settings.database_wh_params_v2}"  # noqa: E501
+            # For Trino: include catalog/schema in URL to set default, but still allow federated queries
+            # URL format: trino://user:pass@host:port/catalog/schema
+            # database_wh_db_v2 should be in format "catalog/schema" (e.g., "dwh/public")
+            url = f"{normalized_driver}://{settings.database_wh_user}:{settings.database_wh_pass}@{settings.database_wh_server_v2}:{settings.database_wh_port_v2}/{settings.database_wh_db_v2}{settings.database_wh_params_v2}"  # noqa: E501
             eng = create_engine(
                 url,
                 pool_size=20,

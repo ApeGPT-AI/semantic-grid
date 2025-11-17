@@ -367,12 +367,30 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                 )
 
                 try:
-                    if schema_name:
+                    # For Trino, query columns using raw SQL to support cross-catalog access
+                    if dialect == "trino" and catalog_name and schema_name:
+                        # Use DESCRIBE or SHOW COLUMNS for Trino federated queries
+                        result = conn.execute(
+                            text(f"DESCRIBE {catalog_name}.{schema_name}.{table}")
+                        )
+                        # Convert Trino DESCRIBE output to inspector-like format
+                        columns = []
+                        for row in result.fetchall():
+                            columns.append(
+                                {
+                                    "name": row[0],  # Column name
+                                    "type": str(row[1]),  # Data type
+                                    "nullable": True,  # Trino doesn't return this in DESCRIBE
+                                    "default": None,
+                                }
+                            )
+                    elif schema_name:
                         columns = inspector.get_columns(table, schema=schema_name)
                     else:
                         columns = inspector.get_columns(table)
-                except Exception:
+                except Exception as e:
                     # Skip tables that error during column introspection
+                    logging.warning(f"Failed to get columns for {full_table_name}: {e}")
                     schema_text += "   (Unable to retrieve column information)\n\n"
                     continue
 
@@ -562,7 +580,23 @@ def get_db_schema() -> DbSchema:
                         continue
 
                     try:
-                        if schema_name:
+                        # For Trino, query columns using raw SQL to support cross-catalog access
+                        if dialect == "trino" and catalog_name and schema_name:
+                            result = conn.execute(
+                                text(f"DESCRIBE {catalog_name}.{schema_name}.{table}")
+                            )
+                            # Convert Trino DESCRIBE output to inspector-like format
+                            db_columns = []
+                            for row in result.fetchall():
+                                db_columns.append(
+                                    {
+                                        "name": row[0],
+                                        "type": str(row[1]),
+                                        "nullable": True,
+                                        "default": None,
+                                    }
+                                )
+                        elif schema_name:
                             db_columns = inspector.get_columns(
                                 table, schema=schema_name
                             )

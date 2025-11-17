@@ -32,6 +32,8 @@ fi
 
 FULL_IMAGE="$REGISTRY/$IMAGE_NAME:$NEW_VERSION"
 
+kubectl config use-context arn:aws:eks:us-east-1:205930631794:cluster/apegpt-cl1
+
 echo "Building and deploying db-meta..."
 echo "Image: $FULL_IMAGE"
 
