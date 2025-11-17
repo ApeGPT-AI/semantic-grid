@@ -1601,12 +1601,13 @@ async def stream_data_fetch(
         """Stream task progress via SSE."""
         import time
 
-        yield {
-            "event": "started",
-            "data": json.dumps(
-                {"task_id": task_id, "query_id": str(query_id), "status": "started"}
-            ),
-        }
+        try:
+            yield {
+                "event": "started",
+                "data": json.dumps(
+                    {"task_id": task_id, "query_id": str(query_id), "status": "started"}
+                ),
+            }
 
         # Poll task status
         max_wait = 300  # 5 minutes max
@@ -1685,6 +1686,20 @@ async def stream_data_fetch(
                 "event": "error",
                 "data": json.dumps(
                     {"status": "error", "error": "Query execution timeout"}
+                ),
+            }
+        except GeneratorExit:
+            # Client disconnected - revoke the task
+            task.revoke(terminate=True)
+            logger.info(f"Client disconnected, task {task_id} revoked")
+        except Exception as e:
+            # Unexpected error - revoke the task
+            task.revoke(terminate=True)
+            logger.error(f"Error in SSE stream: {e}", exc_info=True)
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {"status": "error", "error": str(e)}
                 ),
             }
 

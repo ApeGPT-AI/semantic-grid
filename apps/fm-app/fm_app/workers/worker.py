@@ -499,7 +499,7 @@ async def _wrk_add_request(args):
     #    return request
 
 
-@app.task(name="wrk_fetch_data", bind=True)
+@app.task(name="wrk_fetch_data", bind=True, soft_time_limit=300, time_limit=600)
 def wrk_fetch_data(self, args):
     """
     Background task for fetching data from warehouse.
@@ -596,6 +596,19 @@ def wrk_fetch_data(self, args):
             }
 
     except Exception as e:
+        from celery.exceptions import SoftTimeLimitExceeded
+
+        if isinstance(e, SoftTimeLimitExceeded):
+            logger.warning(
+                f"Query timeout (5 minute soft limit): {query_id}",
+                query_id=query_id,
+            )
+            return {
+                "status": "error",
+                "query_id": query_id,
+                "error": "Query execution timed out (5 minute limit). Please simplify your query or add more filters.",
+            }
+
         logger.error(
             f"Error fetching data: {e}",
             query_id=query_id,
