@@ -399,10 +399,51 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 )
                 continue
 
-            # Row count commented out - keep for future use
+            # Smart row count: skip if query is too expensive based on EXPLAIN estimates
+            row_count = None
             try:
-                row_count = count_wh_request(extracted_sql, db_wh)
-                new_metadata.update({"row_count": row_count})
+                # Get estimates from EXPLAIN (already fetched above)
+                estimated_rows = analyzed.get("estimated_rows")
+                estimated_size_gb = analyzed.get("estimated_output_size_gb")
+
+                # Define thresholds for skipping row count
+                # These are higher than warning thresholds since row count is less critical
+                skip_row_count_threshold_rows = 10_000_000_000  # 10B rows
+                skip_row_count_threshold_size_gb = 100.0  # 100 GB
+
+                should_skip_count = False
+                if estimated_rows and estimated_rows > skip_row_count_threshold_rows:
+                    should_skip_count = True
+                    logger.info(
+                        "Skipping row count due to high estimated rows",
+                        flow_stage="skip_row_count",
+                        flow_step_num=next(flow_step),
+                        estimated_rows=estimated_rows,
+                    )
+                elif (
+                    estimated_size_gb
+                    and estimated_size_gb > skip_row_count_threshold_size_gb
+                ):
+                    should_skip_count = True
+                    logger.info(
+                        "Skipping row count due to high estimated size",
+                        flow_stage="skip_row_count",
+                        flow_step_num=next(flow_step),
+                        estimated_size_gb=estimated_size_gb,
+                    )
+
+                if not should_skip_count:
+                    row_count = count_wh_request(extracted_sql, db_wh)
+                    new_metadata.update({"row_count": row_count})
+                    logger.info(
+                        "Row count completed",
+                        flow_stage="row_count",
+                        flow_step_num=next(flow_step),
+                        row_count=row_count,
+                    )
+                else:
+                    # Set row_count to None when skipped, frontend can handle this gracefully
+                    new_metadata.update({"row_count": None, "row_count_skipped": True})
 
                 # Chart detection: build chart metadata from LLM suggestion + empirical validation
                 from fm_app.utils.chart_detection import build_chart_metadata
@@ -423,15 +464,14 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 )
 
             except Exception as e:
-                await update_request_status(
-                    RequestStatus.error, str(e), db, req.request_id
-                )
-                logger.info(
-                    "Error counting rows",
+                # Don't fail the entire flow if row count fails
+                logger.warning(
+                    "Error counting rows, continuing without row count",
                     flow_stage="count_rows_error",
                     flow_step_num=next(flow_step),
                     error=str(e),
                 )
+                new_metadata.update({"row_count": None})
 
             await update_query_metadata(
                 session_id=req.session_id,
