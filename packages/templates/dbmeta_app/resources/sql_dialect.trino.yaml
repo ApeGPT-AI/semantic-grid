@@ -49,6 +49,24 @@ profiles:
       Example: SELECT * FROM table CROSS JOIN UNNEST(array_column) AS t(element)
 
     - |
+      **JSON field extraction in Trino**:
+
+      Trino does NOT support PostgreSQL-style `->>` or `->` operators for JSON.
+
+      Use these Trino JSON functions:
+      - json_extract_scalar(json_column, '$.field') - Extract string/scalar value
+      - json_extract(json_column, '$.field') - Extract as JSON (for nested objects)
+      - json_array_get(json_column, index) - Get array element by index
+
+      Examples:
+        ✓ json_extract_scalar(address_data, '$.zip')
+        ✓ json_extract_scalar(mapbox_address_data, '$.postcode')
+        ✗ address_data->>'zip' (PostgreSQL syntax - NOT supported)
+        ✗ address_data['zip'] (bracket notation - NOT supported)
+
+      Always use json_extract_scalar() for text fields from JSON columns.
+
+    - |
       Aggregate functions operate on scalar columns.
       Do not pass arrays into aggregate functions like avg().
       Use avg(column) directly on the column.
