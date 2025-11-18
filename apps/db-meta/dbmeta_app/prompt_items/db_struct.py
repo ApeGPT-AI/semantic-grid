@@ -7,6 +7,7 @@ from pydantic import BaseModel, RootModel
 from sqlalchemy import inspect, text
 
 from dbmeta_app.api.model import PromptItem, PromptItemType
+from dbmeta_app.cache import CACHE_TTL, get_cache
 from dbmeta_app.config import get_settings
 from dbmeta_app.prompt_assembler.prompt_packs import assemble_effective_tree, load_yaml
 from dbmeta_app.wh_db.db import get_db
@@ -243,12 +244,26 @@ def _should_include_table(descriptions, table_metadata):
 def generate_schema_prompt(engine, settings, with_examples=False):
     """Generates a human-readable schema description merged with YAML descriptions,
     including examples. Iterates through catalog/schema/table hierarchy."""
+
+    # Try to get from cache first
+    cache = get_cache()
+    profile = settings.default_profile
+    client = settings.client
+    env = settings.env
+
+    cache_key_args = (profile, client, env, with_examples)
+    cached_result = cache.get("schema", *cache_key_args)
+    if cached_result is not None:
+        logging.info(
+            f"Schema cache HIT for profile={profile}, client={client}, env={env}"
+        )
+        return cached_result
+
+    logging.info(f"Schema cache MISS for profile={profile}, client={client}, env={env}")
+
     inspector = inspect(engine)
     dialect = engine.dialect.name.lower()
     repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
-    client = settings.client
-    env = settings.env
-    profile = settings.default_profile
     tree = assemble_effective_tree(repo_root, profile, client, env)
 
     file = load_yaml(tree, "resources/schema_descriptions.yaml")
@@ -459,6 +474,10 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                         + "\n".join(",".join(map(str, row.values())) for row in rows)
                         + "\n\n"
                     )
+
+    # Cache the result
+    cache.set("schema", schema_text, ttl=CACHE_TTL["schema"], *cache_key_args)
+    logging.info(f"Schema cached for profile={profile}, client={client}, env={env}")
 
     return schema_text
 
@@ -925,6 +944,16 @@ def query_preflight(query: str) -> PreflightResult:
     Returns:
         PreflightResult with explanation or errors
     """
+    # Try to get from cache first
+    cache = get_cache()
+    cached_result = cache.get("explain", query)
+    if cached_result is not None:
+        logging.info("Query preflight cache HIT")
+        # Reconstruct PreflightResult from cached dict
+        return PreflightResult(**cached_result)
+
+    logging.info("Query preflight cache MISS")
+
     engine = get_db()
     dialect = engine.dialect.name.lower()
 
@@ -959,11 +988,20 @@ def query_preflight(query: str) -> PreflightResult:
             elif dialect == "clickhouse":
                 estimated_rows, estimated_size_gb = parse_clickhouse_estimates(rows)
 
-            return PreflightResult(
+            result = PreflightResult(
                 explanation=rows,
                 estimated_rows=estimated_rows,
                 estimated_output_size_gb=estimated_size_gb,
             )
 
+            # Cache the result
+            cache.set("explain", result.model_dump(), ttl=CACHE_TTL["explain"], query)
+            logging.info("Query preflight cached")
+
+            return result
+
         except Exception as e:
-            return PreflightResult(error=f"SQL error: {str(e)}")
+            error_result = PreflightResult(error=f"SQL error: {str(e)}")
+            # Also cache errors (with shorter TTL) to avoid repeated validation of bad queries
+            cache.set("explain", error_result.model_dump(), ttl=60, query)
+            return error_result
