@@ -310,9 +310,14 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                         estimated_size_gb=estimated_size_gb,
                     )
 
-                    # Warn if query will process >5B rows or >5TB
-                    warning_threshold_rows = 5_000_000_000  # 5B rows
-                    warning_threshold_size_gb = 5000.0  # 5TB
+                    # Database-specific warning thresholds
+                    # Trino is slower with large scans, ClickHouse handles more efficiently
+                    if warehouse_dialect == "trino":
+                        warning_threshold_rows = 1_000_000_000  # 1B rows for Trino
+                        warning_threshold_size_gb = 10.0  # 10 GB for Trino
+                    else:  # clickhouse
+                        warning_threshold_rows = 5_000_000_000  # 5B rows for ClickHouse
+                        warning_threshold_size_gb = 5000.0  # 5TB for ClickHouse
 
                     if estimated_rows > warning_threshold_rows or (
                         estimated_size_gb is not None

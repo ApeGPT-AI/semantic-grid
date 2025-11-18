@@ -1,11 +1,34 @@
 "use client";
 
 import { LicenseInfo } from "@mui/x-license";
-
-LicenseInfo.setLicenseKey(process.env.NEXT_PUBLIC_MUIX_LICENSE_KEY!);
+import { useEffect } from "react";
 
 const MuiXLicense = () => {
-  console.log("MUI Key:", process.env.NEXT_PUBLIC_MUIX_LICENSE_KEY?.length);
+  useEffect(() => {
+    // Try to use build-time env var first (for Vercel/build-time injection)
+    const buildTimeKey = process.env.NEXT_PUBLIC_MUIX_LICENSE_KEY;
+
+    if (buildTimeKey) {
+      LicenseInfo.setLicenseKey(buildTimeKey);
+      console.log("MUI Key (build-time):", buildTimeKey.length);
+    } else {
+      // Fallback to runtime config (for self-hosted/k8s)
+      fetch("/api/config")
+        .then((res) => res.json())
+        .then((config) => {
+          if (config.muiLicenseKey) {
+            LicenseInfo.setLicenseKey(config.muiLicenseKey);
+            console.log("MUI Key (runtime):", config.muiLicenseKey.length);
+          } else {
+            console.warn("MUI X License key not found in runtime config");
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load runtime config:", err);
+        });
+    }
+  }, []);
+
   return null;
 };
 
