@@ -1609,85 +1609,85 @@ async def stream_data_fetch(
                 ),
             }
 
-        # Poll task status
-        max_wait = 300  # 5 minutes max
-        start_time = time.time()
-        poll_interval = 0.5  # Poll every 500ms
-        count_sent = False  # Track if count event was sent
+            # Poll task status
+            max_wait = 300  # 5 minutes max
+            start_time = time.time()
+            poll_interval = 0.5  # Poll every 500ms
+            count_sent = False  # Track if count event was sent
 
-        while time.time() - start_time < max_wait:
-            # Check if client disconnected
-            if await request.is_disconnected():
-                # Cancel the task if client disconnected
-                task.revoke(terminate=True)
-                break
+            while time.time() - start_time < max_wait:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    # Cancel the task if client disconnected
+                    task.revoke(terminate=True)
+                    break
 
-            # Check task status
-            result = task
+                # Check task status
+                result = task
 
-            # Check for counting complete state (only send once)
-            if result.state == "COUNTING_COMPLETE" and not count_sent:
-                meta = result.info
-                yield {
-                    "event": "count",
-                    "data": json.dumps(
-                        {
-                            "status": "counting_complete",
-                            "query_id": meta.get("query_id"),
-                            "total_rows": meta.get("total_rows"),
+                # Check for counting complete state (only send once)
+                if result.state == "COUNTING_COMPLETE" and not count_sent:
+                    meta = result.info
+                    yield {
+                        "event": "count",
+                        "data": json.dumps(
+                            {
+                                "status": "counting_complete",
+                                "query_id": meta.get("query_id"),
+                                "total_rows": meta.get("total_rows"),
+                            }
+                        ),
+                    }
+                    count_sent = True
+
+                if result.ready():
+                    # Task completed
+                    task_result = result.get()
+
+                    if task_result.get("status") == "success":
+                        yield {
+                            "event": "data",
+                            "data": json.dumps(
+                                {
+                                    "status": "success",
+                                    "query_id": task_result.get("query_id"),
+                                    "rows": task_result.get("rows"),
+                                    "total_rows": task_result.get("total_rows"),
+                                    "limit": task_result.get("limit"),
+                                    "offset": task_result.get("offset"),
+                                }
+                            ),
                         }
+                    else:
+                        yield {
+                            "event": "error",
+                            "data": json.dumps(
+                                {
+                                    "status": "error",
+                                    "error": task_result.get("error", "Unknown error"),
+                                }
+                            ),
+                        }
+                    break
+
+                # Still running - send progress update
+                yield {
+                    "event": "progress",
+                    "data": json.dumps(
+                        {"status": "running", "elapsed": int(time.time() - start_time)}
                     ),
                 }
-                count_sent = True
 
-            if result.ready():
-                # Task completed
-                task_result = result.get()
-
-                if task_result.get("status") == "success":
-                    yield {
-                        "event": "data",
-                        "data": json.dumps(
-                            {
-                                "status": "success",
-                                "query_id": task_result.get("query_id"),
-                                "rows": task_result.get("rows"),
-                                "total_rows": task_result.get("total_rows"),
-                                "limit": task_result.get("limit"),
-                                "offset": task_result.get("offset"),
-                            }
-                        ),
-                    }
-                else:
-                    yield {
-                        "event": "error",
-                        "data": json.dumps(
-                            {
-                                "status": "error",
-                                "error": task_result.get("error", "Unknown error"),
-                            }
-                        ),
-                    }
-                break
-
-            # Still running - send progress update
-            yield {
-                "event": "progress",
-                "data": json.dumps(
-                    {"status": "running", "elapsed": int(time.time() - start_time)}
-                ),
-            }
-
-            await asyncio.sleep(poll_interval)
-        else:
-            # Timeout
-            task.revoke(terminate=True)
-            yield {
-                "event": "error",
-                "data": json.dumps(
-                    {"status": "error", "error": "Query execution timeout"}
-                ),
-            }
+                await asyncio.sleep(poll_interval)
+            else:
+                # Timeout
+                task.revoke(terminate=True)
+                yield {
+                    "event": "error",
+                    "data": json.dumps(
+                        {"status": "error", "error": "Query execution timeout"}
+                    ),
+                }
         except GeneratorExit:
             # Client disconnected - revoke the task
             task.revoke(terminate=True)
@@ -1698,9 +1698,7 @@ async def stream_data_fetch(
             logger.error(f"Error in SSE stream: {e}", exc_info=True)
             yield {
                 "event": "error",
-                "data": json.dumps(
-                    {"status": "error", "error": str(e)}
-                ),
+                "data": json.dumps({"status": "error", "error": str(e)}),
             }
 
     return EventSourceResponse(event_generator())

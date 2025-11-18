@@ -296,6 +296,74 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
             if analyzed.get("explanation"):
                 explanation = analyzed.get("explanation")[0]
                 new_metadata.update({"explanation": explanation})
+
+                # Check for large result set estimates (Trino only)
+                estimated_rows = analyzed.get("estimated_rows")
+                estimated_size_gb = analyzed.get("estimated_output_size_gb")
+
+                if estimated_rows is not None:
+                    logger.info(
+                        "Query estimates from execution plan",
+                        flow_stage="query_estimates",
+                        flow_step_num=next(flow_step),
+                        estimated_rows=estimated_rows,
+                        estimated_size_gb=estimated_size_gb,
+                    )
+
+                    # Warn if query will process >100M rows or >1GB
+                    warning_threshold_rows = 100_000_000  # 100M rows
+                    warning_threshold_size_gb = 1.0  # 1GB
+
+                    if estimated_rows > warning_threshold_rows or (
+                        estimated_size_gb is not None
+                        and estimated_size_gb > warning_threshold_size_gb
+                    ):
+                        warning_msg = f"""
+                            WARNING: This query may be inefficient and could timeout.
+
+                            Query estimates:
+                            - Estimated rows to process: {estimated_rows:,}
+                            {f"- Estimated output size: {estimated_size_gb:.2f} GB" if estimated_size_gb else ""}
+
+                            The query appears to be scanning a very large dataset without sufficient filtering or limits.
+
+                            Suggestions to improve performance:
+                            1. Add a LIMIT clause if you only need a sample of results
+                            2. Add more WHERE filters to reduce the data scanned
+                            3. Use approx_distinct() instead of SELECT DISTINCT for cardinality estimates
+                            4. Consider using TABLESAMPLE for exploratory queries
+
+                            Would you like to:
+                            a) Proceed with this query (may timeout)
+                            b) Revise the query to add LIMIT or more filters
+
+                            If you didn't intend to scan this much data, please rephrase your request with specific limits.
+                        """
+
+                        logger.warning(
+                            "Large result set detected",
+                            flow_stage="large_result_warning",
+                            flow_step_num=next(flow_step),
+                            estimated_rows=estimated_rows,
+                            estimated_size_gb=estimated_size_gb,
+                        )
+
+                        # Add warning to messages for LLM to see
+                        messages.append(
+                            {
+                                "role": "system",
+                                "content": warning_msg,
+                            }
+                        )
+
+                        # Store estimate in metadata
+                        new_metadata.update(
+                            {
+                                "estimated_rows": estimated_rows,
+                                "estimated_size_gb": estimated_size_gb,
+                                "performance_warning": True,
+                            }
+                        )
             elif analyzed.get("error"):
                 err = analyzed.get("error")
                 await update_request_status(

@@ -146,3 +146,40 @@ profiles:
       - Use CAST(value AS type) or value::type
       - Common types: VARCHAR, BIGINT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE
       - Be explicit about decimal precision when needed
+
+    - |
+      **PERFORMANCE OPTIMIZATION - CRITICAL**:
+
+      When querying large tables (millions/billions of rows), always consider:
+
+      1. **LIMIT DISTINCT queries**: If user asks for "list of X" or "what are the Y",
+         they likely don't need all results. Add LIMIT to prevent scanning billions of rows:
+
+         Instead of:
+           SELECT DISTINCT nas_id FROM large_table WHERE condition
+
+         Write:
+           SELECT DISTINCT nas_id FROM large_table WHERE condition LIMIT 1000
+
+         Or better yet, use GROUP BY with LIMIT:
+           SELECT nas_id FROM large_table WHERE condition GROUP BY nas_id LIMIT 1000
+
+      2. **Approximate aggregations** for exploratory queries:
+         - Use approx_distinct() instead of COUNT(DISTINCT) for cardinality estimates
+         - Use approx_percentile() for approximate percentiles
+         Example: SELECT approx_distinct(nas_id) FROM large_table WHERE condition
+
+      3. **Sampling** for data exploration:
+         - Use TABLESAMPLE for analyzing subsets: FROM table TABLESAMPLE BERNOULLI(1)
+         - Sample percentage based on data size (0.1% to 10%)
+
+      4. **Partition pruning**: If table is partitioned by date/time, always filter on partition columns:
+         WHERE date_column >= DATE '2024-01-01'
+
+      5. **Avoid expensive operations on large datasets**:
+         - ORDER BY without LIMIT forces full sort of all rows
+         - DISTINCT without LIMIT forces full table scan and deduplication
+         - Always add LIMIT when user wants "some examples" or "a list"
+
+      Default assumption: If user doesn't specify quantity, return up to 1000 rows maximum.
+      User can always ask for more if needed.

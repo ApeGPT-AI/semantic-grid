@@ -85,6 +85,8 @@ class DbSchema(RootModel[Dict[str, DbTable]]):
 class PreflightResult(BaseModel):
     explanation: list[dict[str, Any]] | None = None
     error: str | None = None
+    estimated_rows: int | None = None  # Estimated rows from query plan
+    estimated_output_size_gb: float | None = None  # Estimated output size in GB
 
 
 def load_yaml_descriptions(yaml_file):
@@ -790,6 +792,65 @@ def get_data_samples() -> dict[str, Any]:
     return result
 
 
+def parse_trino_estimates(
+    explanation_rows: list[dict[str, Any]],
+) -> tuple[int | None, float | None]:
+    """
+    Parse Trino EXPLAIN output to extract row and size estimates.
+
+    Trino's EXPLAIN output contains lines like:
+    "Estimates: {rows: 811699256 (7.00GB), cpu: 7.00G, memory: ?, network: 0B}"
+
+    We want to extract the maximum estimated rows and output size from the plan.
+
+    Returns:
+        tuple of (estimated_rows, estimated_size_gb)
+    """
+    import re
+
+    max_rows = None
+    max_size_gb = None
+
+    for row in explanation_rows:
+        # The explanation is typically in a "Query Plan" column
+        query_plan = row.get("Query Plan", "")
+        if not query_plan:
+            continue
+
+        # Find all Estimates blocks
+        # Pattern: Estimates: {rows: NUMBER (SIZE), ...}
+        estimate_pattern = r"Estimates:\s*\{rows:\s*([\d,]+)\s*\(([\d.]+)([KMGT]?B)\)"
+        matches = re.findall(estimate_pattern, query_plan)
+
+        for match in matches:
+            rows_str, size_str, size_unit = match
+
+            # Parse rows (remove commas)
+            rows = int(rows_str.replace(",", ""))
+            if max_rows is None or rows > max_rows:
+                max_rows = rows
+
+            # Parse size to GB
+            size = float(size_str)
+            if size_unit == "KB":
+                size_gb = size / (1024 * 1024)
+            elif size_unit == "MB":
+                size_gb = size / 1024
+            elif size_unit == "GB":
+                size_gb = size
+            elif size_unit == "TB":
+                size_gb = size * 1024
+            elif size_unit == "B":
+                size_gb = size / (1024 * 1024 * 1024)
+            else:
+                size_gb = size / (1024 * 1024 * 1024)  # Assume bytes
+
+            if max_size_gb is None or size_gb > max_size_gb:
+                max_size_gb = size_gb
+
+    return max_rows, max_size_gb
+
+
 def query_preflight(query: str) -> PreflightResult:
     """
     Validate SQL query using database-specific EXPLAIN commands.
@@ -833,7 +894,17 @@ def query_preflight(query: str) -> PreflightResult:
             res = conn.execute(text(f"{explain_command} {query}"))
             columns = res.keys()
             rows = [dict(zip(columns, row)) for row in res.fetchall()]
-            return PreflightResult(explanation=rows)
+
+            # Try to parse estimates (currently only for Trino)
+            estimated_rows, estimated_size_gb = None, None
+            if dialect == "trino":
+                estimated_rows, estimated_size_gb = parse_trino_estimates(rows)
+
+            return PreflightResult(
+                explanation=rows,
+                estimated_rows=estimated_rows,
+                estimated_output_size_gb=estimated_size_gb,
+            )
 
         except Exception as e:
             return PreflightResult(error=f"SQL error: {str(e)}")
