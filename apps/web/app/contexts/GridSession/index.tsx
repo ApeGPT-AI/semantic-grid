@@ -407,6 +407,7 @@ export const GridSessionProvider = ({
   );
   const [selectedAction, setSelectedAction] =
     useState<keyof typeof options>("submit");
+  const performanceWarningShown = useRef<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollToBottom = () => {
@@ -591,6 +592,58 @@ export const GridSessionProvider = ({
   });
   const hasLoadedOnce = useRef(false);
   const triggered = useRef(false);
+
+  // Check for performance warnings and show confirmation dialog
+  useEffect(() => {
+    const hasPerformanceWarning = metadata?.performance_warning === true;
+    const estimatedRows = metadata?.estimated_rows;
+    const estimatedSizeGb = metadata?.estimated_size_gb;
+    const queryKey = `${sessionId}-${metadata?.sql}`;
+    const hasCachedData =
+      data && data.length > 0 && !isLoading && !isValidating;
+
+    if (
+      hasPerformanceWarning &&
+      performanceWarningShown.current !== queryKey &&
+      metadata?.sql &&
+      !hasCachedData
+    ) {
+      performanceWarningShown.current = queryKey;
+
+      const estimatedRowsText = estimatedRows
+        ? `${estimatedRows.toLocaleString()} rows`
+        : "a large number of rows";
+      const estimatedSizeText = estimatedSizeGb
+        ? ` (${estimatedSizeGb.toFixed(2)} GB)`
+        : "";
+
+      const message =
+        `This query will process ${estimatedRowsText}${estimatedSizeText}.\n` +
+        `It may take several minutes or timeout (5 minute limit).\n` +
+        `Suggestions:\n` +
+        `• Add LIMIT to get sample results faster\n` +
+        `• Add more WHERE filters to reduce data scanned\n` +
+        `• Use approx_distinct() for counts\n\n` +
+        `Do you want to proceed?`;
+
+      const userConfirmed = confirm(message);
+
+      if (!userConfirmed) {
+        // User cancelled - abort the fetch
+        abortController.abort();
+      }
+    }
+  }, [
+    metadata?.performance_warning,
+    metadata?.estimated_rows,
+    metadata?.estimated_size_gb,
+    metadata?.sql,
+    sessionId,
+    data,
+    isLoading,
+    isValidating,
+    abortController,
+  ]);
 
   useEffect(() => {
     if (activeRows && activeRows?.length < (data?.length || 0)) {

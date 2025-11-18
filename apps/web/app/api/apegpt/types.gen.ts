@@ -320,6 +320,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/data/sse/{query_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Data Fetch
+         * @description SSE endpoint for async data fetching.
+         *
+         *     Flow:
+         *     1. Validates query and auth
+         *     2. Launches Celery task for data fetching
+         *     3. Streams progress events to client
+         *     4. Returns final data when ready
+         */
+        get: operations["stream_data_fetch_api_v1_data_sse__query_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/query/{query_id}": {
         parameters: {
             query?: never;
@@ -411,6 +437,24 @@ export interface components {
             /** Query Id */
             query_id?: string | null;
         };
+        /**
+         * ChartMetadata
+         * @description Chart visualization metadata for query results.
+         *
+         *     - suggested_chart: LLM's suggested chart type based on query intent
+         *     - available_charts: Empirically validated chart types based on result structure
+         *     - chart_config: Optional hints for chart rendering (axis labels, title, etc.)
+         */
+        ChartMetadata: {
+            /** Suggested Chart */
+            suggested_chart?: string | null;
+            /** Available Charts */
+            available_charts?: string[] | null;
+            /** Chart Config */
+            chart_config?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** ChartRequest */
         ChartRequest: {
             /** Code */
@@ -500,6 +544,7 @@ export interface components {
             row_count?: number | null;
             /** Columns */
             columns?: components["schemas"]["Column"][] | null;
+            chart?: components["schemas"]["ChartMetadata"] | null;
             /**
              * Ai Generated
              * @default true
@@ -1365,6 +1410,42 @@ export interface operations {
         };
     };
     get_query_data_api_v1_data__query_id__get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort_by?: string | null;
+                sort_order?: string;
+            };
+            header?: never;
+            path: {
+                query_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_data_fetch_api_v1_data_sse__query_id__get: {
         parameters: {
             query?: {
                 limit?: number;

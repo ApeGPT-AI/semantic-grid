@@ -310,9 +310,9 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                         estimated_size_gb=estimated_size_gb,
                     )
 
-                    # Warn if query will process >100M rows or >1GB
-                    warning_threshold_rows = 100_000_000  # 100M rows
-                    warning_threshold_size_gb = 1.0  # 1GB
+                    # Warn if query will process >5B rows or >5TB
+                    warning_threshold_rows = 5_000_000_000  # 5B rows
+                    warning_threshold_size_gb = 5000.0  # 5TB
 
                     if estimated_rows > warning_threshold_rows or (
                         estimated_size_gb is not None

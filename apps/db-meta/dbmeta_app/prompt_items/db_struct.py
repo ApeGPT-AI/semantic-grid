@@ -792,6 +792,64 @@ def get_data_samples() -> dict[str, Any]:
     return result
 
 
+def parse_clickhouse_estimates(
+    explanation_rows: list[dict[str, Any]],
+) -> tuple[int | None, float | None]:
+    """
+    Parse ClickHouse EXPLAIN output to extract row and size estimates.
+
+    ClickHouse EXPLAIN output can be in different formats:
+    - EXPLAIN ESTIMATE: Returns structured data with 'rows', 'marks', 'parts', 'database', 'table'
+      Example: {"database": "ct", "marks": 285084, "parts": 268, "rows": 1608837646, "table": "enriched_trades"}
+    - EXPLAIN: Returns execution plan as text string
+
+    Returns:
+        tuple of (estimated_rows, estimated_size_gb)
+    """
+    import re
+
+    max_rows = None
+    max_size_gb = None
+
+    for row in explanation_rows:
+        # First check if this is EXPLAIN ESTIMATE output (structured data with 'rows' field)
+        if "rows" in row and isinstance(row.get("rows"), (int, float)):
+            rows = int(row["rows"])
+            if max_rows is None or rows > max_rows:
+                max_rows = rows
+            continue
+
+        # Otherwise, try to parse text-based EXPLAIN output
+        # Try different possible column names
+        explanation_text = (
+            row.get("explain")
+            or row.get("plan")
+            or row.get("EXPLAIN")
+            or list(row.values())[0]
+            if row
+            else ""
+        )
+
+        if not explanation_text or not isinstance(explanation_text, str):
+            continue
+
+        # Look for row count patterns in text
+        # Pattern: "ReadFromStorage ... rows: 1000000"
+        rows_pattern = r"rows?:\s*([\d,]+)"
+        rows_matches = re.findall(rows_pattern, explanation_text, re.IGNORECASE)
+
+        for rows_str in rows_matches:
+            rows = int(rows_str.replace(",", ""))
+            if max_rows is None or rows > max_rows:
+                max_rows = rows
+
+    # Estimate size based on row count (rough approximation: ~1KB per row)
+    if max_rows is not None:
+        max_size_gb = (max_rows * 1024) / (1024 * 1024 * 1024)  # Convert bytes to GB
+
+    return max_rows, max_size_gb
+
+
 def parse_trino_estimates(
     explanation_rows: list[dict[str, Any]],
 ) -> tuple[int | None, float | None]:
@@ -865,16 +923,15 @@ def query_preflight(query: str) -> PreflightResult:
         query: SQL query to validate
 
     Returns:
-        PreflightResult with explanation or error
+        PreflightResult with explanation or errors
     """
     engine = get_db()
     dialect = engine.dialect.name.lower()
 
     # Determine appropriate EXPLAIN command for the dialect
     if dialect == "clickhouse":
-        # Use EXPLAIN instead of EXPLAIN ESTIMATE for better compatibility
-        # EXPLAIN SYNTAX would be even safer but doesn't return execution info
-        explain_command = "EXPLAIN"
+        # Use EXPLAIN ESTIMATE as ClickHouse's EXPLAIN
+        explain_command = "EXPLAIN ESTIMATE"
     elif dialect in ("postgresql", "postgres"):
         # PostgreSQL EXPLAIN
         explain_command = "EXPLAIN"
@@ -895,10 +952,12 @@ def query_preflight(query: str) -> PreflightResult:
             columns = res.keys()
             rows = [dict(zip(columns, row)) for row in res.fetchall()]
 
-            # Try to parse estimates (currently only for Trino)
+            # Try to parse estimates based on database dialect
             estimated_rows, estimated_size_gb = None, None
             if dialect == "trino":
                 estimated_rows, estimated_size_gb = parse_trino_estimates(rows)
+            elif dialect == "clickhouse":
+                estimated_rows, estimated_size_gb = parse_clickhouse_estimates(rows)
 
             return PreflightResult(
                 explanation=rows,
