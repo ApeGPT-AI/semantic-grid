@@ -52,3 +52,5 @@ apps/web/app/test-errors/
 apps/fm-app/examples
 
 infra/k8s/local
+
+.zed/
