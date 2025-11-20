@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     env: Optional[str] = "prod"
     default_profile: Optional[str] = "wh_v2"
     packs_resources_dir: str = "/app/packages"
+    # Redis cache configuration
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: Optional[str] = None
+    redis_db: int = 0
+    redis_cache_enabled: bool = True
 
 
 @lru_cache()
