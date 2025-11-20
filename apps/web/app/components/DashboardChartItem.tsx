@@ -52,13 +52,18 @@ export const DashboardChartItem = ({
 
   const lineChartSeries = useMemo(
     () =>
-      gridColumns.slice(1).map((col) => ({
+      (gridColumns || []).slice(1).map((col) => ({
         id: col.field?.replace("col_", ""),
         label: col.headerName,
         dataKey: col.field?.replace("col_", ""), // EXACTLY matches dataset key
         showMark: false,
       })),
     [gridColumns],
+  );
+
+  const dataset = useMemo(
+    () => normalizeDataSet(data?.rows || [], gridColumns),
+    [data, gridColumns],
   );
 
   const xAxis = useMemo(
@@ -70,14 +75,37 @@ export const DashboardChartItem = ({
         // valueFormatter: (value: number) => new Date(value).toString(),
       },
     ],
-    [gridColumns],
+    [gridColumns, chartType],
   );
+
+  // Show loading state if data isn't ready
+  if (
+    !query ||
+    !data ||
+    gridColumns.length === 0 ||
+    !dataset ||
+    dataset.length === 0
+  ) {
+    return (
+      <Box
+        sx={{
+          width: "100%",
+          height: minHeight,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (chartType === "pie") {
     return (
       <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <PieChart
-          series={pieSeries}
+          series={pieSeries || []}
           height={minHeight}
           sx={{ width: "100%" }}
         />
@@ -104,8 +132,8 @@ export const DashboardChartItem = ({
       <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <LineChart
           xAxis={xAxis as any} // e.g. 'col_0'
-          series={lineChartSeries}
-          dataset={normalizeDataSet(data?.rows || [], gridColumns)}
+          series={lineChartSeries || []}
+          dataset={dataset}
           height={minHeight}
           sx={{ width: "100%" }}
         >
@@ -134,8 +162,8 @@ export const DashboardChartItem = ({
       <Box sx={{ width: "100%", height: minHeight, position: "relative" }}>
         <BarChart
           xAxis={xAxis as any}
-          series={lineChartSeries}
-          dataset={normalizeDataSet(data?.rows || [], gridColumns)}
+          series={lineChartSeries || []}
+          dataset={dataset}
           height={minHeight}
           sx={{ width: "100%" }}
         >

@@ -10,7 +10,6 @@ const MuiXLicense = () => {
 
     if (buildTimeKey) {
       LicenseInfo.setLicenseKey(buildTimeKey);
-      console.log("MUI Key (build-time):", buildTimeKey.length);
     } else {
       // Fallback to runtime config (for self-hosted/k8s)
       fetch("/api/config")
@@ -18,7 +17,6 @@ const MuiXLicense = () => {
         .then((config) => {
           if (config.muiLicenseKey) {
             LicenseInfo.setLicenseKey(config.muiLicenseKey);
-            console.log("MUI Key (runtime):", config.muiLicenseKey.length);
           } else {
             console.warn("MUI X License key not found in runtime config");
           }
