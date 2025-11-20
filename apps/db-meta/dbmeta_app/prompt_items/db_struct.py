@@ -241,6 +241,296 @@ def _should_include_table(descriptions, table_metadata):
     return True
 
 
+def filter_structured_schema(schema_data: dict, relevant_tables: set | None) -> dict:
+    """
+    Filter structured schema to only include relevant tables.
+
+    Args:
+        schema_data: Full structured schema dict from get_structured_schema()
+        relevant_tables: Set of table names to include, or None for all tables
+
+    Returns:
+        dict: Filtered schema data containing only relevant tables
+    """
+    if not relevant_tables:
+        return schema_data
+
+    return {
+        table: data for table, data in schema_data.items() if table in relevant_tables
+    }
+
+
+def render_schema_to_text(schema_data: dict, table_counter_start: int = 1) -> str:
+    """
+    Convert structured schema dict to text prompt format.
+
+    This renders the schema in the same format as generate_schema_prompt()
+    to maintain compatibility with existing prompts.
+
+    Args:
+        schema_data: Structured schema dict (full or filtered)
+        table_counter_start: Starting number for table counter (default: 1)
+
+    Returns:
+        str: Human-readable schema text
+    """
+    schema_text = "The database contains the following tables:\n\n"
+    table_counter = table_counter_start - 1
+
+    for full_table_name, table_data in schema_data.items():
+        table_counter += 1
+
+        description = table_data.get("description", "")
+        schema_text += (
+            f"Table #{table_counter}. **{full_table_name}** ({description})\n"
+        )
+
+        # Render columns
+        columns = table_data.get("columns", [])
+        for col in columns:
+            if col.get("hidden", False):
+                continue
+
+            col_name = col.get("name", "")
+            col_type = col.get("type", "")
+            col_desc = col.get("description", "")
+            col_example = col.get("example", "")
+
+            schema_text += f"   - {col_name} ({col_type})"
+
+            if col_desc:
+                schema_text += f" - {col_desc}"
+            if col_example:
+                schema_text += f" (e.g., {col_example})"
+
+            schema_text += "\n"
+
+        schema_text += "\n"
+
+        # Render sample rows if present
+        sample_rows = table_data.get("sample_rows")
+        if sample_rows:
+            schema_text += (
+                "\nSample Data Rows (CSVs):\n"
+                + "\n".join(",".join(row) for row in sample_rows)
+                + "\n\n"
+            )
+
+    return schema_text
+
+
+def get_structured_schema(engine, settings, with_examples=False):
+    """
+    Generate structured schema data (dict format) suitable for caching.
+
+    This function performs the expensive DB introspection and returns structured data
+    that can be easily cached, filtered, and rendered.
+
+    Args:
+        engine: SQLAlchemy engine
+        settings: Application settings
+        with_examples: Whether to include sample data rows
+
+    Returns:
+        dict: {table_name: {description, columns, sample_rows}}
+    """
+    # Try to get from cache first
+    cache = get_cache()
+    profile = settings.default_profile
+    client = settings.client
+    env = settings.env
+
+    cache_key_args = (profile, client, env, with_examples)
+    cached_result = cache.get("schema_structured", *cache_key_args)
+    if cached_result is not None:
+        logging.info(
+            f"Structured schema cache HIT for profile={profile}, "
+            f"client={client}, env={env}"
+        )
+        return cached_result
+
+    logging.info(
+        f"Structured schema cache MISS for profile={profile}, "
+        f"client={client}, env={env}"
+    )
+
+    # Build structured schema
+    inspector = inspect(engine)
+    dialect = engine.dialect.name.lower()
+    repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
+    tree = assemble_effective_tree(repo_root, profile, client, env)
+
+    file = load_yaml(tree, "resources/schema_descriptions.yaml")
+
+    # Defensive: handle missing 'profiles' key or missing profile
+    if "profiles" not in file:
+        raise ValueError(
+            f"schema_descriptions.yaml missing 'profiles' key. File content: {file}"
+        )
+    if profile not in file["profiles"]:
+        available_profiles = list(file["profiles"].keys())
+        raise ValueError(
+            f"Profile '{profile}' not found in schema_descriptions.yaml. "
+            f"Available profiles: {available_profiles}"
+        )
+
+    descriptions = file["profiles"][profile]
+
+    # Store tables as dict
+    tables_data = {}
+
+    with engine.connect() as conn:
+        catalog_names = _get_catalogs(engine, conn)
+
+        for catalog_name in catalog_names:
+            schema_names = _get_schemas_for_catalog(
+                engine, inspector, conn, catalog_name
+            )
+
+            # Filter out system schemas
+            if dialect == "clickhouse":
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and not s.startswith("_")
+                    and s not in ("system", "information_schema", "INFORMATION_SCHEMA")
+                ]
+            elif dialect in ("postgresql", "postgres"):
+                schema_names = [
+                    s
+                    for s in schema_names
+                    if s
+                    and s
+                    not in ("information_schema", "pg_catalog", "pg_toast", "pg_temp_1")
+                ]
+            elif dialect == "trino":
+                schema_names = [
+                    s for s in schema_names if s and s not in ("information_schema",)
+                ]
+
+            if not schema_names:
+                schema_names = [None]
+
+            for schema_name in schema_names:
+                try:
+                    if dialect == "trino" and catalog_name and schema_name:
+                        result = conn.execute(
+                            text(f"SHOW TABLES FROM {catalog_name}.{schema_name}")
+                        )
+                        table_names = [row[0] for row in result.fetchall()]
+                    elif schema_name:
+                        table_names = inspector.get_table_names(schema=schema_name)
+                    else:
+                        table_names = inspector.get_table_names()
+                except Exception:
+                    continue
+
+                for table in table_names:
+                    # Skip system/internal tables
+                    if table.startswith("_") or table.startswith("temp_"):
+                        continue
+
+                    # Build fully qualified table name
+                    if dialect == "trino" and catalog_name and schema_name:
+                        full_table_name = f"{catalog_name}.{schema_name}.{table}"
+                    elif schema_name:
+                        full_table_name = f"{schema_name}.{table}"
+                    else:
+                        full_table_name = table
+
+                    # Get table metadata
+                    table_metadata = _get_table_metadata_with_fallback(
+                        descriptions, table, schema_name, catalog_name
+                    )
+
+                    if not _should_include_table(descriptions, table_metadata):
+                        continue
+
+                    table_description = table_metadata.get(
+                        "description", f"Stores {table.replace('_', ' ')} data."
+                    )
+
+                    # Get columns
+                    try:
+                        if dialect == "trino" and catalog_name and schema_name:
+                            result = conn.execute(
+                                text(f"DESCRIBE {catalog_name}.{schema_name}.{table}")
+                            )
+                            columns = []
+                            for row in result.fetchall():
+                                columns.append(
+                                    {
+                                        "name": row[0],
+                                        "type": str(row[1]),
+                                        "nullable": True,
+                                        "default": None,
+                                    }
+                                )
+                        elif schema_name:
+                            columns = inspector.get_columns(table, schema=schema_name)
+                        else:
+                            columns = inspector.get_columns(table)
+                    except Exception as e:
+                        logging.warning(
+                            f"Failed to get columns for {full_table_name}: {e}"
+                        )
+                        continue
+
+                    # Build column data with metadata
+                    columns_data = []
+                    for col in columns:
+                        col_metadata = table_metadata.get("columns", {}).get(
+                            col["name"], {}
+                        )
+                        col_hidden = col_metadata.get("hidden", False)
+
+                        if not col_hidden:
+                            columns_data.append(
+                                {
+                                    "name": col["name"],
+                                    "type": str(col["type"]),
+                                    "nullable": col.get("nullable", True),
+                                    "default": col.get("default"),
+                                    "description": col_metadata.get("description", ""),
+                                    "example": col_metadata.get("example", ""),
+                                    "hidden": col_hidden,
+                                }
+                            )
+
+                    # Get sample rows if requested
+                    sample_rows = None
+                    if with_examples:
+                        try:
+                            query_table_name = full_table_name if schema_name else table
+                            sample_query = get_sample_query(query_table_name, engine)
+                            result = conn.execute(text(sample_query))
+                            rows = result.fetchall()
+                            if rows:
+                                sample_rows = [[str(v) for v in row] for row in rows]
+                        except Exception as e:
+                            logging.warning(
+                                f"Failed to get sample rows for {full_table_name}: {e}"
+                            )
+
+                    # Store structured data
+                    tables_data[full_table_name] = {
+                        "table_name": table,
+                        "full_table_name": full_table_name,
+                        "description": table_description,
+                        "columns": columns_data,
+                        "sample_rows": sample_rows,
+                    }
+
+    # Cache the structured data
+    cache.set("schema_structured", tables_data, CACHE_TTL["schema"], *cache_key_args)
+    logging.info(
+        f"Structured schema cached for profile={profile}, client={client}, env={env}"
+    )
+
+    return tables_data
+
+
 def generate_schema_prompt(engine, settings, with_examples=False, filter_tables=None):
     """Generates a human-readable schema description merged with YAML descriptions,
     including examples. Iterates through catalog/schema/table hierarchy.
@@ -400,7 +690,8 @@ def generate_schema_prompt(engine, settings, with_examples=False, filter_tables=
                 )
 
                 try:
-                    # For Trino, query columns using raw SQL to support cross-catalog access
+                    # For Trino, query columns using raw SQL to support
+                    # cross-catalog access
                     if dialect == "trino" and catalog_name and schema_name:
                         # Use DESCRIBE or SHOW COLUMNS for Trino federated queries
                         result = conn.execute(
@@ -413,7 +704,8 @@ def generate_schema_prompt(engine, settings, with_examples=False, filter_tables=
                                 {
                                     "name": row[0],  # Column name
                                     "type": str(row[1]),  # Data type
-                                    "nullable": True,  # Trino doesn't return this in DESCRIBE
+                                    # Trino doesn't return nullable in DESCRIBE
+                                    "nullable": True,
                                     "default": None,
                                 }
                             )
@@ -505,6 +797,10 @@ def get_schema_prompt_item(
     """
     Get schema prompt item, optionally filtered by semantic relevance to user request.
 
+    This function uses a two-layer optimization strategy:
+    1. Redis cache: Fast lookup of full structured schema (dict format)
+    2. Semantic filtering: Filter cached schema to relevant tables using Milvus
+
     Args:
         user_request: Optional user's natural language query for semantic filtering
         top_k: Number of most relevant tables to include when filtering (default: 10)
@@ -515,7 +811,14 @@ def get_schema_prompt_item(
     settings = get_settings()
     engine = get_db()
 
-    # Determine which tables to include
+    # Step 1: Get structured schema (from cache or DB introspection)
+    structured_schema = get_structured_schema(
+        engine,
+        settings,
+        with_examples=settings.data_examples,
+    )
+
+    # Step 2: Apply semantic filtering if user_request provided
     relevant_tables = None
     if user_request:
         # Use semantic search to filter tables
@@ -533,15 +836,16 @@ def get_schema_prompt_item(
         if table_matches:
             relevant_tables = {match.table_name for match in table_matches}
             logging.info(
-                f"Semantic filtering: selected {len(relevant_tables)} tables for query: {user_request[:100]}"
+                f"Semantic filtering: selected {len(relevant_tables)} tables "
+                f"for query: {user_request[:100]}"
             )
 
-    prompt = generate_schema_prompt(
-        engine,
-        settings,
-        with_examples=settings.data_examples,
-        filter_tables=relevant_tables,
-    )
+    # Step 3: Filter structured schema
+    filtered_schema = filter_structured_schema(structured_schema, relevant_tables)
+
+    # Step 4: Render to text
+    prompt = render_schema_to_text(filtered_schema)
+
     items = PromptItem(
         text=prompt,
         prompt_item_type=PromptItemType.db_struct,
@@ -652,7 +956,8 @@ def get_db_schema() -> DbSchema:
                         continue
 
                     try:
-                        # For Trino, query columns using raw SQL to support cross-catalog access
+                        # For Trino, query columns using raw SQL to support
+                        # cross-catalog access
                         if dialect == "trino" and catalog_name and schema_name:
                             result = conn.execute(
                                 text(f"DESCRIBE {catalog_name}.{schema_name}.{table}")
@@ -869,8 +1174,10 @@ def parse_clickhouse_estimates(
     Parse ClickHouse EXPLAIN output to extract row and size estimates.
 
     ClickHouse EXPLAIN output can be in different formats:
-    - EXPLAIN ESTIMATE: Returns structured data with 'rows', 'marks', 'parts', 'database', 'table'
-      Example: {"database": "ct", "marks": 285084, "parts": 268, "rows": 1608837646, "table": "enriched_trades"}
+    - EXPLAIN ESTIMATE: Returns structured data with 'rows', 'marks',
+      'parts', 'database', 'table'
+      Example: {"database": "ct", "marks": 285084, "parts": 268,
+                "rows": 1608837646, "table": "enriched_trades"}
     - EXPLAIN: Returns execution plan as text string
 
     Returns:
@@ -882,7 +1189,8 @@ def parse_clickhouse_estimates(
     max_size_gb = None
 
     for row in explanation_rows:
-        # First check if this is EXPLAIN ESTIMATE output (structured data with 'rows' field)
+        # First check if this is EXPLAIN ESTIMATE output
+        # (structured data with 'rows' field)
         if "rows" in row and isinstance(row.get("rows"), (int, float)):
             rows = int(row["rows"])
             if max_rows is None or rows > max_rows:
@@ -1053,6 +1361,7 @@ def query_preflight(query: str) -> PreflightResult:
 
         except Exception as e:
             error_result = PreflightResult(error=f"SQL error: {str(e)}")
-            # Also cache errors (with shorter TTL) to avoid repeated validation of bad queries
+            # Also cache errors (with shorter TTL) to avoid repeated
+            # validation of bad queries
             cache.set("explain", error_result.model_dump(), 60, query)
             return error_result
