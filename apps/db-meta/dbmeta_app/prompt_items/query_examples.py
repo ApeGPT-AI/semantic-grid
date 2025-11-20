@@ -43,7 +43,7 @@ def get_query_example_prompt_item(query: str, db: str) -> PromptItem:
     )
 
     # Cache the result
-    cache.set("examples", result.model_dump(), query, db, ttl=CACHE_TTL["examples"])
+    cache.set("examples", result.model_dump(), CACHE_TTL["examples"], query, db)
     logging.info(f"Query examples cached for db={db}")
 
     return result

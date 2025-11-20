@@ -493,7 +493,7 @@ def generate_schema_prompt(engine, settings, with_examples=False, filter_tables=
 
     # Cache the result (only if we generated the full schema, not a filtered version)
     if filter_tables is None:
-        cache.set("schema", schema_text, ttl=CACHE_TTL["schema"], *cache_key_args)
+        cache.set("schema", schema_text, CACHE_TTL["schema"], *cache_key_args)
         logging.info(f"Schema cached for profile={profile}, client={client}, env={env}")
 
     return schema_text
@@ -1046,7 +1046,7 @@ def query_preflight(query: str) -> PreflightResult:
             )
 
             # Cache the result
-            cache.set("explain", result.model_dump(), query, ttl=CACHE_TTL["explain"])
+            cache.set("explain", result.model_dump(), CACHE_TTL["explain"], query)
             logging.info("Query preflight cached")
 
             return result
@@ -1054,5 +1054,5 @@ def query_preflight(query: str) -> PreflightResult:
         except Exception as e:
             error_result = PreflightResult(error=f"SQL error: {str(e)}")
             # Also cache errors (with shorter TTL) to avoid repeated validation of bad queries
-            cache.set("explain", error_result.model_dump(), query, ttl=60)
+            cache.set("explain", error_result.model_dump(), 60, query)
             return error_result
