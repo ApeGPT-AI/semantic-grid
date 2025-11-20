@@ -90,7 +90,7 @@ export const createLinkedUserSession = async ({
   return res.data;
 };
 
-export const getUserSessions = async () => {
+export const getUserSessions = cache(async () => {
   const guestToken = cookies().get("uid")?.value;
   let token = null; //
   try {
@@ -113,33 +113,35 @@ export const getUserSessions = async () => {
     return [];
   }
   return res.data;
-};
+});
 
-export const getUserSession = async ({ sessionId }: { sessionId: string }) => {
-  const guestToken = cookies().get("uid")?.value;
-  let token = null; //
-  try {
-    token = await getAccessToken();
-  } catch (error: any) {
-    token = { accessToken: guestToken };
-  }
-  if (!token) {
-    throw NonAuthorizedError;
-  }
-  const res: FetchResponse<any, any, any> = await client.GET(
-    "/api/v1/session/{session_id}",
-    {
-      headers: { Authorization: `Bearer ${token.accessToken}` },
-      params: { path: { session_id: sessionId } },
-      // cache: "no-store",
-    },
-  );
-  if (res.error) {
-    console.error((res as any).error);
-    return [];
-  }
-  return res.data;
-};
+export const getUserSession = cache(
+  async ({ sessionId }: { sessionId: string }) => {
+    const guestToken = cookies().get("uid")?.value;
+    let token = null; //
+    try {
+      token = await getAccessToken();
+    } catch (error: any) {
+      token = { accessToken: guestToken };
+    }
+    if (!token) {
+      throw NonAuthorizedError;
+    }
+    const res: FetchResponse<any, any, any> = await client.GET(
+      "/api/v1/session/{session_id}",
+      {
+        headers: { Authorization: `Bearer ${token.accessToken}` },
+        params: { path: { session_id: sessionId } },
+        // cache: "no-store",
+      },
+    );
+    if (res.error) {
+      console.error((res as any).error);
+      return [];
+    }
+    return res.data;
+  },
+);
 
 export const updateUserSession = async ({ sessionId, name, tags }: any) => {
   const guestToken = cookies().get("uid")?.value;
@@ -350,28 +352,30 @@ export const getSingleUserRequest = async ({ sessionId, seqNum }: any) => {
   return res.data;
 };
 
-export const getAllUserRequestsForSession = async ({ sessionId }: any) => {
-  const guestToken = cookies().get("uid")?.value;
-  let token = null; //
-  try {
-    token = await getAccessToken();
-  } catch (error: any) {
-    token = { accessToken: guestToken };
-  }
-  if (!token) {
-    throw NonAuthorizedError;
-  }
-  const res = await client.GET("/api/v1/session/get_requests/{session_id}", {
-    params: { path: { session_id: sessionId } },
-    headers: { Authorization: `Bearer ${token.accessToken}` },
-  });
-  if (res.error) {
-    console.error((res as any).error);
-    return [];
-    // throw new Error(JSON.stringify((res as any).error?.detail));
-  }
-  return res.data;
-};
+export const getAllUserRequestsForSession = cache(
+  async ({ sessionId }: any) => {
+    const guestToken = cookies().get("uid")?.value;
+    let token = null; //
+    try {
+      token = await getAccessToken();
+    } catch (error: any) {
+      token = { accessToken: guestToken };
+    }
+    if (!token) {
+      throw NonAuthorizedError;
+    }
+    const res = await client.GET("/api/v1/session/get_requests/{session_id}", {
+      params: { path: { session_id: sessionId } },
+      headers: { Authorization: `Bearer ${token.accessToken}` },
+    });
+    if (res.error) {
+      console.error((res as any).error);
+      return [];
+      // throw new Error(JSON.stringify((res as any).error?.detail));
+    }
+    return res.data;
+  },
+);
 
 export const getQuery = cache(
   async ({ queryId }: any): Promise<TQuery | null> => {
