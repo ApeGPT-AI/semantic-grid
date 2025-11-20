@@ -87,15 +87,17 @@ export const ChatContainer = ({
   const [inputHeight, setInputHeight] = useState(0);
 
   const [welcome, setWelcome] = useState<string>("");
-  useEffect(() => {
-    getNewSessionWelcome().then(setWelcome);
-  }, []);
-
   const [followUps, setFollowUps] = useState<string[]>([]);
+
   useEffect(() => {
-    getSuggestedPrompts()
-      .then((p) => p.map((p: SuggestedPrompt) => p.text))
-      .then(setFollowUps);
+    // Load both welcome message and suggested prompts together
+    Promise.all([
+      getNewSessionWelcome(),
+      getSuggestedPrompts().then((p) => p.map((p: SuggestedPrompt) => p.text)),
+    ]).then(([welcomeText, prompts]) => {
+      setWelcome(welcomeText);
+      setFollowUps(prompts);
+    });
   }, []);
 
   useEffect(() => {
