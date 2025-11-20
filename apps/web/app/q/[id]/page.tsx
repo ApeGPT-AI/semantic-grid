@@ -1,3 +1,4 @@
+import { Box, Container, Paper, Typography } from "@mui/material";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
@@ -56,21 +57,38 @@ const QueryPage = async ({ params: { id } }: { params: { id: string } }) => {
   const query = await getQueryById(id);
   console.log("query", query);
 
-  if (!query) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <h2>Query Not Found</h2>
-        <p>The query with ID {id} does not exist or could not be loaded.</p>
-      </div>
-    );
-  }
-
   return (
     <Suspense fallback={<div>Loading messages...</div>}>
-      <QueryDataProvider query={query} queryId={id}>
-        <AppBar id={id} />
-        <QueryContainer key={id} id={id} query={query} />
-      </QueryDataProvider>
+      <AppBar id={id} />
+      {!query ? (
+        <Container maxWidth={false}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "calc(100vh - 64px)",
+            }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                textAlign: "center",
+                maxWidth: "500px",
+              }}
+            >
+              <Typography variant="body1" color="textSecondary">
+                The query with ID {id} does not exist or could not be loaded.
+              </Typography>
+            </Paper>
+          </Box>
+        </Container>
+      ) : (
+        <QueryDataProvider query={query} queryId={id}>
+          <QueryContainer key={id} id={id} query={query} />
+        </QueryDataProvider>
+      )}
     </Suspense>
   );
 };
