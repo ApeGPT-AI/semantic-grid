@@ -255,14 +255,15 @@ export const SessionProvider = ({
           : new Error("Failed to create SSE connection"),
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sessionId,
     enabled,
     autoReconnect,
     maxReconnectAttempts,
     reconnectDelay,
-    updateConnectionStatus,
-    handleError,
+    // Note: updateConnectionStatus and handleError are intentionally excluded
+    // to prevent reconnection loops. They are stable via useCallback.
   ]);
 
   const disconnect = useCallback(() => {
@@ -280,7 +281,8 @@ export const SessionProvider = ({
     }
 
     updateConnectionStatus("disconnected");
-  }, [updateConnectionStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // updateConnectionStatus is stable, no need to include it
 
   const reconnect = useCallback(() => {
     console.log("[SessionContext] Manual reconnect requested");
