@@ -214,38 +214,89 @@ export const DashboardItemPage = ({
               </>
             )}
             {view === "grid" && (
-              <DataGrid
-                density="compact"
-                rows={tableDataset}
-                // rowCount={rowCount}
-                columns={gridColumns}
-                loading={isLoading} // isLoading ? true : false
-                sx={{
-                  border: "none", // remove outer border
-                  fontSize: "1rem",
-                  "& .highlight-column": {
-                    backgroundColor: "rgba(255, 165, 0, 0.1)",
-                  },
-                  "& .MuiDataGrid-cell:focus": {
-                    outline: "none",
-                  },
-                  "& .MuiDataGrid-cell:focus-within": {
-                    outline: "none",
-                  },
-                  "& .MuiDataGrid-columnHeader:focus": {
-                    outline: "none",
-                  },
-                  "& .MuiDataGrid-columnHeader:focus-within": {
-                    outline: "none",
-                  },
-                  "& .highlight-column-header": {
-                    backgroundColor: "rgba(255, 165, 0, 0.1) !important", // <- this line
-                  },
-                  "& .highlighted-row": {
-                    backgroundColor: "rgba(255, 165, 0, 0.1)",
-                  },
-                }}
-              />
+              <>
+                {dataError && (
+                  <Box
+                    sx={{
+                      height: "calc(100vh - 180px)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "rgba(211, 47, 47, 0.05)",
+                      border: "1px solid rgba(211, 47, 47, 0.3)",
+                      borderRadius: 1,
+                      p: 3,
+                    }}
+                  >
+                    <Typography
+                      variant="h6"
+                      color="error"
+                      gutterBottom
+                      sx={{ fontWeight: 600 }}
+                    >
+                      Query Execution Error
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="error"
+                      sx={{
+                        fontFamily: "monospace",
+                        whiteSpace: "pre-wrap",
+                        textAlign: "center",
+                        maxWidth: "800px",
+                        mt: 1,
+                      }}
+                    >
+                      {dataError.message ||
+                        "An error occurred while executing the query"}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 2 }}
+                    >
+                      This may be caused by schema changes, invalid table names,
+                      or query syntax errors
+                    </Typography>
+                  </Box>
+                )}
+                {!dataError && (
+                  <DataGrid
+                    density="compact"
+                    rows={tableDataset}
+                    // rowCount={rowCount}
+                    columns={gridColumns}
+                    loading={isLoading} // isLoading ? true : false
+                    sx={{
+                      height: "calc(100vh - 180px)", // Ensure table occupies full vertical space
+                      border: "none", // remove outer border
+                      fontSize: "1rem",
+                      "& .highlight-column": {
+                        backgroundColor: "rgba(255, 165, 0, 0.1)",
+                      },
+                      "& .MuiDataGrid-cell:focus": {
+                        outline: "none",
+                      },
+                      "& .MuiDataGrid-cell:focus-within": {
+                        outline: "none",
+                      },
+                      "& .MuiDataGrid-columnHeader:focus": {
+                        outline: "none",
+                      },
+                      "& .MuiDataGrid-columnHeader:focus-within": {
+                        outline: "none",
+                      },
+                      "& .highlight-column-header": {
+                        backgroundColor: "rgba(255, 165, 0, 0.1) !important", // <- this line
+                      },
+                      "& .highlighted-row": {
+                        backgroundColor: "rgba(255, 165, 0, 0.1)",
+                      },
+                    }}
+                  />
+                )}
+              </>
             )}
             {view === "sql" && (
               <Box

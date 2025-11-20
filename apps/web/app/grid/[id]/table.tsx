@@ -89,6 +89,7 @@ export const DataTable = () => {
     selectionModel,
     setSelectionModel,
     setNewCol,
+    error: dataError,
   } = useGridSession();
   const apiRef = useGridApiRef();
   // console.log("DataTable loading:", isLoading, "validating:", isValidating);
@@ -106,6 +107,49 @@ export const DataTable = () => {
     >
       <Typography variant="body2" color="textSecondary">
         No data or no query
+      </Typography>
+    </Box>
+  );
+
+  // eslint-disable-next-line react/no-unstable-nested-components
+  const CustomErrorOverlay = () => (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(211, 47, 47, 0.05)",
+        border: "1px solid rgba(211, 47, 47, 0.3)",
+        borderRadius: 1,
+        p: 3,
+      }}
+    >
+      <Typography
+        variant="h6"
+        color="error"
+        gutterBottom
+        sx={{ fontWeight: 600 }}
+      >
+        Query Execution Error
+      </Typography>
+      <Typography
+        variant="body2"
+        color="error"
+        sx={{
+          fontFamily: "monospace",
+          whiteSpace: "pre-wrap",
+          textAlign: "center",
+          maxWidth: "800px",
+          mt: 1,
+        }}
+      >
+        {dataError?.message || "An error occurred while executing the query"}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
+        This may be caused by schema changes, invalid table names, or query
+        syntax errors
       </Typography>
     </Box>
   );
@@ -202,7 +246,11 @@ export const DataTable = () => {
       }}
       slots={{
         // eslint-disable-next-line react/no-unstable-nested-components,react/jsx-no-useless-fragment
-        noRowsOverlay: isLoading ? () => <></> : CustomNoRowsOverlay,
+        noRowsOverlay: dataError
+          ? CustomErrorOverlay
+          : isLoading
+            ? () => <></>
+            : CustomNoRowsOverlay,
         // eslint-disable-next-line react/no-unstable-nested-components
         footer: () => (
           <CustomFooter isFetchingMore={isValidating && !isLoading} />

@@ -111,6 +111,7 @@ export interface ChatSessionContextType {
   setSelectedAction: React.Dispatch<React.SetStateAction<keyof typeof options>>;
   requestId: string | undefined;
   setRequestId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  error: any;
 }
 
 export const getDecision = async (
@@ -1081,6 +1082,7 @@ export const GridSessionProvider = ({
         setSelectedAction,
         requestId,
         setRequestId,
+        error: dataError,
       }}
     >
       {children}
