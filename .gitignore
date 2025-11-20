@@ -54,3 +54,6 @@ apps/fm-app/examples
 infra/k8s/local
 
 .zed/
+
+
+.DS_Store

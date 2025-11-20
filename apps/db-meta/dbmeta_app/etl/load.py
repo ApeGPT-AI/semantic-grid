@@ -23,7 +23,9 @@ settings = get_settings()
 # print(settings.vector_db_embeddings)
 
 
-collection_name = settings.vector_db_collection_name
+def get_collection_name(client: str, env: str, profile: str, suffix: str) -> str:
+    """Generate collection name with pattern: {client}_{env}_{profile}_{suffix}"""
+    return f"{client}_{env}_{profile}_{suffix}"
 
 
 def get_embeddings(
@@ -37,6 +39,22 @@ def get_embeddings(
 def normalize_vector(vector):
     norm = np.linalg.norm(vector)
     return vector / (norm if norm > 0 else vector)  # Avoid division by zero
+
+
+def connect_to_milvus():
+    """Establish connection to Milvus"""
+    if settings.vector_db_port is not None and settings.vector_db_host is not None:
+        connections.connect(
+            host=settings.vector_db_host,
+            port=settings.vector_db_port,
+        )
+    elif settings.vector_db_connection_string is not None:
+        connections.connect(
+            alias="default",
+            uri=settings.vector_db_connection_string,
+        )
+    else:
+        raise ValueError("No vector DB connection configuration found")
 
 
 def load_query_examples():
@@ -65,20 +83,7 @@ def load_query_examples():
     token_embeddings = get_embeddings(example_texts)
 
     # Connect to Milvus
-    if settings.vector_db_port is not None and settings.vector_db_host is not None:
-        connections.connect(
-            host=settings.vector_db_host,
-            port=settings.vector_db_port,
-        )
-    elif settings.vector_db_connection_string is not None:
-        connections.connect(
-            alias="default",
-            uri=settings.vector_db_connection_string,
-        )
-        # connections.connect(alias="default", uri="sqlite:///:memory:")
-        # Uses in-memory SQLite for testing
-    else:
-        exit(1)
+    connect_to_milvus()
 
     # Define schema
     fields = [
@@ -92,8 +97,8 @@ def load_query_examples():
     ]
     schema = CollectionSchema(fields, description="Query examples")
 
-    # Create or load collection
-    collection_name = settings.vector_db_collection_name
+    # Create or load collection with new naming pattern
+    collection_name = get_collection_name(client, env, profile, "examples")
     index_params = {
         "metric_type": settings.vector_db_metric_type,
         # Use Inner Product for Cosine Similarity
@@ -108,7 +113,6 @@ def load_query_examples():
     collection.create_index("embedding", index_params)
 
     # Insert data into Milvus
-
     entities = [
         {
             "embedding": normalize_vector(np.array(token_embeddings[i])),
@@ -122,12 +126,116 @@ def load_query_examples():
 
     collection.insert(entities)
     collection.flush()
+    print(f"Loaded {len(examples)} query examples into collection: {collection_name}")
+
+
+def load_table_schemas():
+    """Load table schemas from schema_descriptions.yaml into Milvus for semantic search"""
+    settings = get_settings()
+    repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
+    client = settings.client
+    env = settings.env
+    profile = settings.default_profile
+    tree = assemble_effective_tree(repo_root, profile, client, env)
+
+    # Load schema descriptions
+    file = load_yaml(tree, "resources/schema_descriptions.yaml")
+    tables_data = file["profiles"][profile]["tables"]
+
+    # Build table descriptions for embedding
+    table_records = []
+    for table_name, table_info in tables_data.items():
+        # Combine table description with column descriptions
+        description = table_info.get("description", "").strip()
+
+        # Add column information
+        columns = table_info.get("columns", {})
+        column_descriptions = []
+        for col_name, col_info in columns.items():
+            # Skip hidden columns
+            if col_info.get("hidden", False):
+                continue
+            col_desc = col_info.get("description", "").strip()
+            if col_desc:
+                column_descriptions.append(f"{col_name}: {col_desc}")
+
+        # Create searchable text: table name + description + columns
+        searchable_text = f"Table {table_name}. {description}"
+        if column_descriptions:
+            searchable_text += " Columns: " + "; ".join(column_descriptions)
+
+        # Store full column info as JSON for retrieval
+        columns_json = json.dumps(table_info.get("columns", {}))
+
+        table_records.append(
+            {
+                "table_name": table_name,
+                "description": description,
+                "searchable_text": searchable_text,
+                "columns_json": columns_json,
+            }
+        )
+
+    # Generate embeddings for searchable texts
+    searchable_texts = [rec["searchable_text"] for rec in table_records]
+    embeddings = get_embeddings(searchable_texts)
+
+    # Connect to Milvus
+    connect_to_milvus()
+
+    # Define schema for tables collection
+    fields = [
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+        FieldSchema(
+            name="embedding", dtype=DataType.FLOAT_VECTOR, dim=len(embeddings[0])
+        ),
+        FieldSchema(name="table_name", dtype=DataType.VARCHAR, max_length=200),
+        FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=2000),
+        FieldSchema(name="columns_json", dtype=DataType.VARCHAR, max_length=65000),
+        FieldSchema(name="profile", dtype=DataType.VARCHAR, max_length=50),
+    ]
+    schema = CollectionSchema(fields, description="Table schemas for semantic search")
+
+    # Create collection with new naming pattern
+    collection_name = get_collection_name(client, env, profile, "tables")
+    index_params = {
+        "metric_type": settings.vector_db_metric_type,
+        "index_type": settings.vector_db_index_type,
+        "params": json.loads(settings.vector_db_params),
+    }
+
+    if collection_name in pymilvus.utility.list_collections():
+        utility.drop_collection(collection_name)
+    collection = Collection(name=collection_name, schema=schema)
+    collection.create_index("embedding", index_params)
+
+    # Insert data into Milvus
+    entities = [
+        {
+            "embedding": normalize_vector(np.array(embeddings[i])),
+            "table_name": table_records[i]["table_name"],
+            "description": table_records[i]["description"],
+            "columns_json": table_records[i]["columns_json"],
+            "profile": profile,
+        }
+        for i in range(len(table_records))
+    ]
+
+    collection.insert(entities)
+    collection.flush()
+    print(
+        f"Loaded {len(table_records)} table schemas into collection: {collection_name}"
+    )
 
 
 def get_hits(query: str, db: str, top_k=3):
+    """Search for similar query examples (legacy function for testing)"""
+    settings = get_settings()
+    client = settings.client
+    env = settings.env
+    profile = settings.default_profile
+
     query_embedding = get_embeddings([query])
-    # if utility.load_state(collection_name) != LoadState.Loaded:
-    #    collection.load()  # Ensure collection is loaded before querying
 
     search_params = {
         "metric_type": settings.vector_db_metric_type,
@@ -146,10 +254,10 @@ def get_hits(query: str, db: str, top_k=3):
         FieldSchema(name="db", dtype=DataType.VARCHAR, max_length=20),
     ]
     schema = CollectionSchema(fields, description="Query examples")
+    collection_name = get_collection_name(client, env, profile, "examples")
     collection = Collection(name=collection_name, schema=schema)
 
     results = collection.search(
-        # data=[query_embedding.tolist()],  # Query vector
         data=[normalize_vector(np.array(query_embedding[0]))],  # Query vector
         anns_field="embedding",
         param=search_params,
@@ -163,28 +271,26 @@ def get_hits(query: str, db: str, top_k=3):
     for i, hit in enumerate(results[0]):
         request = hit.entity.get("request")
         response = hit.entity.get("response")
-        # print(f"   : {request} - {response} - {1 / (1 + hit.score):.2f}")
         output.append(
             QueryExample(request=request, response=response, score=1 / (1 + hit.score))
         )
-
-    # Combine all examples into a single LLM input string
 
     return output
 
 
 def test_vector_db():
+    """Test function for query example search"""
     question = "What wallet held the most MOBILE tokens on February 12th, 2025."
     hits = get_hits(query=question, db="wh_v2")
-
-    # question = "Get the name of mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So address"
-    # hits = get_hits(query=question, db="wh_v2")
-    # print(f"{question} => {hits}")
+    print(f"Query: {question}")
+    print(f"Found {len(hits)} similar examples")
 
 
 def main():
+    print("Loading data into Milvus...")
     load_query_examples()
-    # test_vector_db()
+    load_table_schemas()
+    print("\nAll data loaded successfully!")
 
 
 if __name__ == "__main__":

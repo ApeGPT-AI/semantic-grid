@@ -240,9 +240,16 @@ def _should_include_table(descriptions, table_metadata):
     return True
 
 
-def generate_schema_prompt(engine, settings, with_examples=False):
+def generate_schema_prompt(engine, settings, with_examples=False, filter_tables=None):
     """Generates a human-readable schema description merged with YAML descriptions,
-    including examples. Iterates through catalog/schema/table hierarchy."""
+    including examples. Iterates through catalog/schema/table hierarchy.
+
+    Args:
+        engine: SQLAlchemy engine
+        settings: Application settings
+        with_examples: Whether to include data examples
+        filter_tables: Optional set of table names to include (for semantic filtering)
+    """
     inspector = inspect(engine)
     dialect = engine.dialect.name.lower()
     repo_root = pathlib.Path(settings.packs_resources_dir).resolve()
@@ -340,6 +347,19 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                 if table.startswith("_") or table.startswith("temp_"):
                     continue
 
+                # Build fully qualified table name for filtering
+                # For Trino, use catalog.schema.table (3-level)
+                if dialect == "trino" and catalog_name and schema_name:
+                    full_table_name = f"{catalog_name}.{schema_name}.{table}"
+                elif schema_name:
+                    full_table_name = f"{schema_name}.{table}"
+                else:
+                    full_table_name = table
+
+                # Apply semantic filtering if filter_tables is provided
+                if filter_tables is not None and full_table_name not in filter_tables:
+                    continue
+
                 # Lookup table metadata with fallback (supports 3-level hierarchy)
                 table_metadata = _get_table_metadata_with_fallback(
                     descriptions, table, schema_name, catalog_name
@@ -350,15 +370,6 @@ def generate_schema_prompt(engine, settings, with_examples=False):
                     continue
 
                 table_counter += 1
-
-                # Build fully qualified table name for display
-                # For Trino, use catalog.schema.table (3-level)
-                if dialect == "trino" and catalog_name and schema_name:
-                    full_table_name = f"{catalog_name}.{schema_name}.{table}"
-                elif schema_name:
-                    full_table_name = f"{schema_name}.{table}"
-                else:
-                    full_table_name = table
 
                 table_description = table_metadata.get(
                     "description", f"Stores {table.replace('_', ' ')} data."
@@ -463,14 +474,48 @@ def generate_schema_prompt(engine, settings, with_examples=False):
     return schema_text
 
 
-def get_schema_prompt_item() -> PromptItem:
+def get_schema_prompt_item(
+    user_request: str | None = None, top_k: int = 10
+) -> PromptItem:
+    """
+    Get schema prompt item, optionally filtered by semantic relevance to user request.
+
+    Args:
+        user_request: Optional user's natural language query for semantic filtering
+        top_k: Number of most relevant tables to include when filtering (default: 10)
+
+    Returns:
+        PromptItem containing schema information
+    """
     settings = get_settings()
     engine = get_db()
+
+    # Determine which tables to include
+    relevant_tables = None
+    if user_request:
+        # Use semantic search to filter tables
+        from dbmeta_app.vector_db.milvus import search_relevant_tables
+
+        table_matches = search_relevant_tables(
+            query=user_request,
+            profile=settings.default_profile,
+            top_k=top_k,
+            client=settings.client,
+            env=settings.env,
+        )
+
+        # Extract table names for filtering
+        if table_matches:
+            relevant_tables = {match.table_name for match in table_matches}
+            logging.info(
+                f"Semantic filtering: selected {len(relevant_tables)} tables for query: {user_request[:100]}"
+            )
 
     prompt = generate_schema_prompt(
         engine,
         settings,
         with_examples=settings.data_examples,
+        filter_tables=relevant_tables,
     )
     items = PromptItem(
         text=prompt,

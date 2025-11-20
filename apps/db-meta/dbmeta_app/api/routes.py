@@ -41,7 +41,9 @@ async def get_prompts_set(
     db = req.db if req.db else settings.database_wh_db
     response = PromptsSetModel(
         prompt_items=[
-            get_schema_prompt_item(),
+            get_schema_prompt_item(
+                user_request=user_request
+            ),  # Enable semantic filtering
             get_query_example_prompt_item(query=user_request, db=db),
             get_prompt_instructions_item(profile=db),
         ],
@@ -63,7 +65,7 @@ async def prompt_items(
     user_request = req.user_request
     db = req.db if req.db else settings.database_wh_db
     db_meta = f"""
-        {get_schema_prompt_item().text}\n\n
+        {get_schema_prompt_item(user_request=user_request).text}\n\n
         {get_query_example_prompt_item(query=user_request, db=db).text}\n\n
         {get_prompt_instructions_item(profile=db).text}
         {get_sql_dialect_item(profile=db).text}
