@@ -109,37 +109,76 @@ const InteractiveQueryPage = async ({
 }: {
   params: { id: string };
 }) => {
-  const { metadata, messages, pending, ancestors, successors } =
-    await getChatMessages(id);
+  try {
+    const { metadata, messages, pending, ancestors, successors } =
+      await getChatMessages(id);
 
-  // Load CMS content for new sessions
-  const [welcomeMessage, suggestedPrompts] = await Promise.all([
-    getNewSessionWelcome(),
-    getSuggestedPrompts().then((p) => p.map((p: SuggestedPrompt) => p.text)),
-  ]);
+    // Load CMS content for new sessions (with error handling)
+    let welcomeMessage: string | null = null;
+    let suggestedPrompts: string[] = [];
 
-  return (
-    <Suspense fallback={<div>Loading messages...</div>}>
-      <GridSessionProvider
-        sessionId={id}
-        chat={{ messages } as TChat}
-        metadata={metadata}
-        pendingRequest={pending as any}
-        ancestors={ancestors}
-        successors={successors}
-      >
-        <InteractiveDashboard
-          key={id}
-          id={id}
+    try {
+      [welcomeMessage, suggestedPrompts] = await Promise.all([
+        getNewSessionWelcome(),
+        getSuggestedPrompts().then((p) =>
+          p.map((p: SuggestedPrompt) => p.text),
+        ),
+      ]);
+    } catch (error) {
+      console.error("Failed to load CMS content (welcome/prompts):", error);
+      // Continue rendering without welcome message/prompts
+    }
+
+    return (
+      <Suspense fallback={<div>Loading messages...</div>}>
+        <GridSessionProvider
+          sessionId={id}
+          chat={{ messages } as TChat}
           metadata={metadata}
-          pendingRequest={pending}
+          pendingRequest={pending as any}
           ancestors={ancestors}
-          welcomeMessage={welcomeMessage}
-          suggestedPrompts={suggestedPrompts}
-        />
-      </GridSessionProvider>
-    </Suspense>
-  );
+          successors={successors}
+        >
+          <InteractiveDashboard
+            key={id}
+            id={id}
+            metadata={metadata}
+            pendingRequest={pending}
+            ancestors={ancestors}
+            welcomeMessage={welcomeMessage}
+            suggestedPrompts={suggestedPrompts}
+          />
+        </GridSessionProvider>
+      </Suspense>
+    );
+  } catch (error) {
+    console.error("Failed to load grid session:", error);
+    // Return error UI instead of crashing the entire page
+    return (
+      <div style={{ padding: "2rem", textAlign: "center" }}>
+        <h2>Unable to load session</h2>
+        <p>
+          There was an error loading this session. Please try refreshing the
+          page.
+        </p>
+        {error instanceof Error && (
+          <details style={{ marginTop: "1rem" }}>
+            <summary>Error details</summary>
+            <pre
+              style={{
+                textAlign: "left",
+                overflow: "auto",
+                maxWidth: "800px",
+                margin: "0 auto",
+              }}
+            >
+              {error.message}
+            </pre>
+          </details>
+        )}
+      </div>
+    );
+  }
 };
 
 export default InteractiveQueryPage;

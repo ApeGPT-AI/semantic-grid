@@ -88,8 +88,32 @@ export const patchOnPayload = async (
 };
 
 export const getDashboards = async (userId?: string) => {
-  if (!userId) {
-    const where = { ownerUserId: { exists: false } };
+  try {
+    if (!userId) {
+      const where = { ownerUserId: { exists: false } };
+      const query = stringify(
+        {
+          where,
+          limit: 1000,
+          sort: "createdAt",
+        },
+        { addQueryPrefix: true },
+      );
+      const dashboards = await getFromPayload("dashboards", query).then(
+        (r) => r?.docs || [],
+      );
+      return dashboards.map((d: Dashboard) => ({
+        ...d,
+        // slug: d.slug.startsWith("/user") ? "/user" : d.slug,
+      }));
+    }
+
+    const where = {
+      or: [
+        { ownerUserId: { equals: userId } },
+        { ownerUserId: { exists: false } },
+      ],
+    };
     const query = stringify(
       {
         where,
@@ -98,104 +122,102 @@ export const getDashboards = async (userId?: string) => {
       },
       { addQueryPrefix: true },
     );
-    const dashboards = await getFromPayload("dashboards", query).then(
+    const userDashboards = await getFromPayload("dashboards", query).then(
       (r) => r?.docs || [],
     );
-    return dashboards.map((d: Dashboard) => ({
+    const mappedDashboards = userDashboards.map((d: Dashboard) => ({
       ...d,
       // slug: d.slug.startsWith("/user") ? "/user" : d.slug,
     }));
+    return [
+      mappedDashboards.find((d: Dashboard) => d.slug === "/"),
+      ...mappedDashboards.filter(
+        (d: Dashboard) => d.slug !== "/" && d.ownerUserId !== userId,
+      ),
+      mappedDashboards.find((d: Dashboard) => d.ownerUserId === userId),
+    ];
+  } catch (error) {
+    console.error("Failed to fetch dashboards from CMS:", error);
+    return []; // Return empty array on error
   }
-
-  const where = {
-    or: [
-      { ownerUserId: { equals: userId } },
-      { ownerUserId: { exists: false } },
-    ],
-  };
-  const query = stringify(
-    {
-      where,
-      limit: 1000,
-      sort: "createdAt",
-    },
-    { addQueryPrefix: true },
-  );
-  const userDashboards = await getFromPayload("dashboards", query).then(
-    (r) => r?.docs || [],
-  );
-  const mappedDashboards = userDashboards.map((d: Dashboard) => ({
-    ...d,
-    // slug: d.slug.startsWith("/user") ? "/user" : d.slug,
-  }));
-  return [
-    mappedDashboards.find((d: Dashboard) => d.slug === "/"),
-    ...mappedDashboards.filter(
-      (d: Dashboard) => d.slug !== "/" && d.ownerUserId !== userId,
-    ),
-    mappedDashboards.find((d: Dashboard) => d.ownerUserId === userId),
-  ];
 };
 
 export const getDashboardByPath = async (path: string) => {
-  // const slug = path.startsWith("/user") ? "/user" : path;
-  const where = { slug: { equals: path || "/" } };
-  const query = stringify(
-    {
-      where,
-      limit: 1,
-    },
-    { addQueryPrefix: true },
-  );
-  const [found] = await getFromPayload("dashboards", query).then(
-    (r) => r?.docs || [],
-  );
-  return found || null;
+  try {
+    // const slug = path.startsWith("/user") ? "/user" : path;
+    const where = { slug: { equals: path || "/" } };
+    const query = stringify(
+      {
+        where,
+        limit: 1,
+      },
+      { addQueryPrefix: true },
+    );
+    const [found] = await getFromPayload("dashboards", query).then(
+      (r) => r?.docs || [],
+    );
+    return found || null;
+  } catch (error) {
+    console.error("Failed to fetch dashboard by path from CMS:", error);
+    return null;
+  }
 };
 
 export const getDashboardData = async (id: string) => {
-  // Fetch dashboard
-  const dashboard = await getFromPayloadById("dashboards", id);
-  if (!dashboard) {
+  try {
+    // Fetch dashboard
+    const dashboard = await getFromPayloadById("dashboards", id);
+    if (!dashboard) {
+      return null;
+      // throw new Error(`Dashboard not found: ${id}`);
+    }
+
+    const maxItems = dashboard.maxItemsPerRow || 2;
+    const layout = dashboard.items?.map((it: DashboardItem, idx: number) => ({
+      i: it.id.toString(),
+      x: (idx % maxItems) * (12 / maxItems),
+      y: Math.floor(idx / maxItems),
+      w: it.width || 12 / maxItems,
+      h:
+        it.height ||
+        (it.width ? (it.width * 3) / 5 : (12 * 3) / (maxItems * 4)),
+      // static: true,
+    }));
+
+    return {
+      ...dashboard,
+      layout,
+    };
+  } catch (error) {
+    console.error("Failed to fetch dashboard data from CMS:", error);
     return null;
-    // throw new Error(`Dashboard not found: ${id}`);
   }
-
-  const maxItems = dashboard.maxItemsPerRow || 2;
-  const layout = dashboard.items?.map((it: DashboardItem, idx: number) => ({
-    i: it.id.toString(),
-    x: (idx % maxItems) * (12 / maxItems),
-    y: Math.floor(idx / maxItems),
-    w: it.width || 12 / maxItems,
-    h: it.height || (it.width ? (it.width * 3) / 5 : (12 * 3) / (maxItems * 4)),
-    // static: true,
-  }));
-
-  return {
-    ...dashboard,
-    layout,
-  };
 };
 
 export const getDashboardItemData = async (id: string) => {
-  const where = { id: { equals: id } };
-  const query = stringify(
-    {
-      where,
-      limit: 1,
-    },
-    { addQueryPrefix: true },
-  );
-  const [row] = await getFromPayload("dashboard_items", query).then(
-    (r) => r?.docs || [],
-  );
+  try {
+    const where = { id: { equals: id } };
+    const query = stringify(
+      {
+        where,
+        limit: 1,
+      },
+      { addQueryPrefix: true },
+    );
+    const [row] = await getFromPayload("dashboard_items", query).then(
+      (r) => r?.docs || [],
+    );
 
-  if (!row) {
+    if (!row) {
+      return null;
+      // throw new Error(`Dashboard item not found: ${id}`);
+    }
+
+    return row;
+  } catch (error) {
+    console.error("Failed to fetch dashboard item data from CMS:", error);
     return null;
-    // throw new Error(`Dashboard item not found: ${id}`);
   }
-
-  return row;
 };
 
 const getQuery = async ({ queryUid }: { queryUid: string }) => {
@@ -460,29 +482,39 @@ export const ensureUserAndDashboard = async (opts: { sid?: string }) => {
 };
 
 export const getSuggestedPrompts = async () => {
-  const query = stringify(
-    {
-      limit: 100,
-      sort: "-createdAt",
-    },
-    { addQueryPrefix: true },
-  );
-  const prompts = await getFromPayload("suggested_prompts", query).then(
-    (r) => r?.docs || [],
-  );
-  return prompts;
+  try {
+    const query = stringify(
+      {
+        limit: 100,
+        sort: "-createdAt",
+      },
+      { addQueryPrefix: true },
+    );
+    const prompts = await getFromPayload("suggested_prompts", query).then(
+      (r) => r?.docs || [],
+    );
+    return prompts;
+  } catch (error) {
+    console.error("Failed to fetch suggested prompts from CMS:", error);
+    return []; // Return empty array on error
+  }
 };
 
 export const getNewSessionWelcome = async () => {
-  const query = stringify(
-    {
-      limit: 1,
-      sort: "-createdAt",
-    },
-    { addQueryPrefix: true },
-  );
-  const [welcome] = await getFromPayload("new_session_welcome", query).then(
-    (r) => r?.docs || [],
-  );
-  return welcome?.text || null;
+  try {
+    const query = stringify(
+      {
+        limit: 1,
+        sort: "-createdAt",
+      },
+      { addQueryPrefix: true },
+    );
+    const [welcome] = await getFromPayload("new_session_welcome", query).then(
+      (r) => r?.docs || [],
+    );
+    return welcome?.text || null;
+  } catch (error) {
+    console.error("Failed to fetch welcome message from CMS:", error);
+    return null; // Return null on error
+  }
 };
