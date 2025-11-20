@@ -11,6 +11,8 @@ import {
   getUserSession,
   getUserSessions,
 } from "@/app/lib/gptAPI";
+import { getNewSessionWelcome, getSuggestedPrompts } from "@/app/lib/payload";
+import type { SuggestedPrompt } from "@/app/lib/payload-types";
 import type { TChat } from "@/app/lib/types";
 
 import { InteractiveDashboard } from "./interactive-dashboard";
@@ -109,7 +111,12 @@ const InteractiveQueryPage = async ({
 }) => {
   const { metadata, messages, pending, ancestors, successors } =
     await getChatMessages(id);
-  // console.log("messages", messages);
+
+  // Load CMS content for new sessions
+  const [welcomeMessage, suggestedPrompts] = await Promise.all([
+    getNewSessionWelcome(),
+    getSuggestedPrompts().then((p) => p.map((p: SuggestedPrompt) => p.text)),
+  ]);
 
   return (
     <Suspense fallback={<div>Loading messages...</div>}>
@@ -124,11 +131,11 @@ const InteractiveQueryPage = async ({
         <InteractiveDashboard
           key={id}
           id={id}
-          // user={user}
           metadata={metadata}
           pendingRequest={pending}
           ancestors={ancestors}
-          // successors={successors}
+          welcomeMessage={welcomeMessage}
+          suggestedPrompts={suggestedPrompts}
         />
       </GridSessionProvider>
     </Suspense>

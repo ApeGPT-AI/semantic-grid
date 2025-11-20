@@ -27,8 +27,6 @@ import ShareQueryUrl from "@/app/components/ShareQueryUrl";
 import { useGridSession } from "@/app/contexts/GridSession";
 import { ThemeContext } from "@/app/contexts/Theme";
 import { StructuredText } from "@/app/helpers/text";
-import { getNewSessionWelcome, getSuggestedPrompts } from "@/app/lib/payload";
-import type { SuggestedPrompt } from "@/app/lib/payload-types";
 import { getSuggestions } from "@/app/lib/suggestions";
 import type { TChatMessage, TChatSection } from "@/app/lib/types";
 
@@ -49,6 +47,8 @@ export const ChatContainer = ({
   // rowCount,
   hasData = false, // added to handle no data case
   metadata, // metadata for follow-ups
+  welcomeMessage,
+  suggestedPrompts,
   // data, // data for the table, if needed
 }: {
   id: string;
@@ -59,6 +59,8 @@ export const ChatContainer = ({
   // rowCount?: number;
   metadata?: any; // metadata for follow-ups
   hasData?: boolean; // added to handle no data case
+  welcomeMessage?: string | null;
+  suggestedPrompts?: string[];
 }) => {
   const { mode, isLarge } = useContext(ThemeContext);
   const {
@@ -86,19 +88,9 @@ export const ChatContainer = ({
   const [showButton, setShowButton] = useState(false);
   const [inputHeight, setInputHeight] = useState(0);
 
-  const [welcome, setWelcome] = useState<string>("");
-  const [followUps, setFollowUps] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Load both welcome message and suggested prompts together
-    Promise.all([
-      getNewSessionWelcome(),
-      getSuggestedPrompts().then((p) => p.map((p: SuggestedPrompt) => p.text)),
-    ]).then(([welcomeText, prompts]) => {
-      setWelcome(welcomeText);
-      setFollowUps(prompts);
-    });
-  }, []);
+  // Use props from server-side rendering instead of client-side fetching
+  const welcome = welcomeMessage || "";
+  const followUps = suggestedPrompts || [];
 
   useEffect(() => {
     const isInternalScroll = hasData;
@@ -300,15 +292,15 @@ export const ChatContainer = ({
   };
 
   const isEmptyChat = useMemo(
-    () =>
-      !metadata &&
-      !pending &&
-      !isLoading &&
-      !isValidating &&
-      sects?.length === 0,
-    [metadata, pending, isLoading, isValidating, sects],
+    () => !metadata && !isLoading && !isValidating && sects?.length === 0,
+    [metadata, isLoading, isValidating, sects],
   );
-  // console.log("isEmptyChat", isEmptyChat);
+
+  // Show welcome/prompts when chat is empty and data has loaded
+  const showWelcomeContent = useMemo(
+    () => isEmptyChat && (welcome || followUps.length > 0),
+    [isEmptyChat, welcome, followUps],
+  );
 
   return (
     <Paper
@@ -489,12 +481,12 @@ export const ChatContainer = ({
                 justifyContent="space-between"
                 sx={{ px: 2 }}
               >
-                {isEmptyChat && (
+                {showWelcomeContent && welcome && (
                   <Typography variant="body2" color="textSecondary">
                     {welcome}
                   </Typography>
                 )}
-                {isEmptyChat &&
+                {showWelcomeContent &&
                   followUps.map((f: string) => (
                     <Box
                       key={f}

@@ -51,6 +51,8 @@ export interface IInteractiveDashboardProps {
   // pendingRequest?: { session_id: string; sequence_number: number } | null; // Pending message, if any
   ancestors?: { id: string; name: string }[]; // Ancestors of the current chat
   // successors?: any[]; // Children of the current chat
+  welcomeMessage?: string | null;
+  suggestedPrompts?: string[];
 }
 
 interface TabPanelProps {
@@ -80,6 +82,8 @@ export const InteractiveDashboard = ({
   metadata,
   // pendingRequest,
   ancestors = [],
+  welcomeMessage,
+  suggestedPrompts,
 }: IInteractiveDashboardProps) => {
   const {
     rows,
@@ -431,6 +435,8 @@ export const InteractiveDashboard = ({
             pendingRequest={pendingRequest}
             hasData={showGrid}
             metadata={metadata}
+            welcomeMessage={welcomeMessage}
+            suggestedPrompts={suggestedPrompts}
           />
         </Container>
       </Box>
@@ -677,6 +683,8 @@ export const InteractiveDashboard = ({
                   pendingRequest={pendingRequest}
                   hasData={hasData}
                   metadata={metadata}
+                  welcomeMessage={welcomeMessage}
+                  suggestedPrompts={suggestedPrompts}
                 />
               </Container>
             </Box>
