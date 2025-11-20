@@ -220,44 +220,12 @@ export const DashboardItemPage = ({
                     sx={{
                       height: "calc(100vh - 180px)",
                       display: "flex",
-                      flexDirection: "column",
                       justifyContent: "center",
                       alignItems: "center",
-                      backgroundColor: "rgba(211, 47, 47, 0.05)",
-                      border: "1px solid rgba(211, 47, 47, 0.3)",
-                      borderRadius: 1,
-                      p: 3,
                     }}
                   >
-                    <Typography
-                      variant="h6"
-                      color="error"
-                      gutterBottom
-                      sx={{ fontWeight: 600 }}
-                    >
+                    <Typography variant="body2" color="textSecondary">
                       Query Execution Error
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="error"
-                      sx={{
-                        fontFamily: "monospace",
-                        whiteSpace: "pre-wrap",
-                        textAlign: "center",
-                        maxWidth: "800px",
-                        mt: 1,
-                      }}
-                    >
-                      {dataError.message ||
-                        "An error occurred while executing the query"}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 2 }}
-                    >
-                      This may be caused by schema changes, invalid table names,
-                      or query syntax errors
                     </Typography>
                   </Box>
                 )}

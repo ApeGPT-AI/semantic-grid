@@ -116,40 +116,14 @@ export const DataTable = () => {
     <Box
       sx={{
         display: "flex",
-        flexDirection: "column",
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(211, 47, 47, 0.05)",
-        border: "1px solid rgba(211, 47, 47, 0.3)",
-        borderRadius: 1,
-        p: 3,
+        fontSize: 18,
       }}
     >
-      <Typography
-        variant="h6"
-        color="error"
-        gutterBottom
-        sx={{ fontWeight: 600 }}
-      >
+      <Typography variant="body2" color="textSecondary">
         Query Execution Error
-      </Typography>
-      <Typography
-        variant="body2"
-        color="error"
-        sx={{
-          fontFamily: "monospace",
-          whiteSpace: "pre-wrap",
-          textAlign: "center",
-          maxWidth: "800px",
-          mt: 1,
-        }}
-      >
-        {dataError?.message || "An error occurred while executing the query"}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
-        This may be caused by schema changes, invalid table names, or query
-        syntax errors
       </Typography>
     </Box>
   );
