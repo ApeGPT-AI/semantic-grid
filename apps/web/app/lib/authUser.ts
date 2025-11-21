@@ -4,23 +4,27 @@ import type { Session } from "@auth0/nextjs-auth0";
 import { getSession } from "@auth0/nextjs-auth0";
 import { jwtDecode } from "jwt-decode";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export const getUserAuthSession = async (): Promise<
-  Session | null | undefined
-> => {
-  const session = await getSession();
+export const getUserAuthSession = cache(
+  async (): Promise<Session | null | undefined> => {
+    const session = await getSession();
 
-  if (!session) {
-    const uid = cookies().get("uid")?.value;
-    if (uid) {
-      const decoded: { sub: string; exp: number } = jwtDecode(uid);
-      return { user: { sub: decoded.sub }, accessTokenExpiresAt: decoded.exp };
+    if (!session) {
+      const uid = cookies().get("uid")?.value;
+      if (uid) {
+        const decoded: { sub: string; exp: number } = jwtDecode(uid);
+        return {
+          user: { sub: decoded.sub },
+          accessTokenExpiresAt: decoded.exp,
+        };
+      }
+      throw new Error(`Requires authentication`);
     }
-    throw new Error(`Requires authentication`);
-  }
 
-  return session;
-};
+    return session;
+  },
+);
 
 export const hasFreeQuota = async () => {
   const usedQuota = cookies().get("apegpt-trial")?.value || 0;
