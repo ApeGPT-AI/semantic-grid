@@ -66,7 +66,7 @@ def load_query_examples():
     tree = assemble_effective_tree(repo_root, profile, client, env)
 
     file = load_yaml(tree, "resources/query_examples.yaml")
-    data = file["profiles"][profile]
+    data = file["profiles"][profile]["examples"]
     examples = []
     for row in data:
         request = row.get("request", "").strip()
