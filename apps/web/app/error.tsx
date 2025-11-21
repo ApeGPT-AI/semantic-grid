@@ -11,8 +11,8 @@ const Error = ({
 }) => {
   useEffect(() => {
     console.error("[Error] An error occurred:", error);
-    console.error("[Error] Error message:", error.message);
-    console.error("[Error] Error stack:", error.stack);
+    console.error("[Error] Error message", error.message);
+    console.error("[Error] Error stack", error.stack);
     if (error.digest) {
       console.error("[Error] Error digest:", error.digest);
     }
