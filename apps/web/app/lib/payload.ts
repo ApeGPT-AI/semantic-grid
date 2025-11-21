@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import * as jose from "jose";
 import { stringify } from "qs-esm";
+import { cache } from "react";
 
 import type { Dashboard, DashboardItem } from "@/app/lib/payload-types";
 
@@ -481,7 +482,7 @@ export const ensureUserAndDashboard = async (opts: { sid?: string }) => {
   return { uid, userId, dashboardId: dashId };
 };
 
-export const getSuggestedPrompts = async () => {
+export const getSuggestedPrompts = cache(async () => {
   try {
     const query = stringify(
       {
@@ -498,9 +499,9 @@ export const getSuggestedPrompts = async () => {
     console.error("Failed to fetch suggested prompts from CMS:", error);
     return []; // Return empty array on error
   }
-};
+});
 
-export const getNewSessionWelcome = async () => {
+export const getNewSessionWelcome = cache(async () => {
   try {
     const query = stringify(
       {
@@ -517,4 +518,4 @@ export const getNewSessionWelcome = async () => {
     console.error("Failed to fetch welcome message from CMS:", error);
     return null; // Return null on error
   }
-};
+});
