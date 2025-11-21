@@ -80,6 +80,6 @@ def get_db() -> Engine:
         )
 
     except Exception as e:
-        raise Exception(f"Error creating database engine {e}")
+        raise Exception(f"Error creating database engine: {e}")
 
     return db
