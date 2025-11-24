@@ -1537,6 +1537,9 @@ async def stream_data_fetch(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="No user name"
         )
 
+    # TODO: temp return empty response !!!
+    raise HTTPException(status_code=204, detail="No content")
+
     # Get SQL from query metadata
     sql = ""
     query_response = await get_query_by_id(query_id=query_id, db=db)

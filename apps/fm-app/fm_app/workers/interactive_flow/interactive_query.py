@@ -411,7 +411,8 @@ async def handle_interactive_query(ctx: FlowContext, intent: IntentAnalysis) -> 
                 skip_row_count_threshold_rows = 10_000_000_000  # 10B rows
                 skip_row_count_threshold_size_gb = 100.0  # 100 GB
 
-                should_skip_count = False
+                # TODO: temp disabled row count !!!
+                should_skip_count = True
                 if estimated_rows and estimated_rows > skip_row_count_threshold_rows:
                     should_skip_count = True
                     logger.info(
