@@ -1,0 +1,43 @@
+name: Build Docker images
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    env:
+      docker_tag: >-
+        ${{ format('{0}-{1}', github.sha, github.run_number) }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN  }}
+          role-session-name: gha_build_${{ github.repository_id }}_${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build the Docker images
+        run: |-
+          docker buildx build --platform linux/amd64 -f apps/fm-app/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} .
+          docker buildx build --platform linux/amd64 -f apps/db-meta/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} .
+          docker buildx build -f apps/web/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} .
+          docker buildx build -f apps/cms/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }} .
+      
+      - name: Push Docker image to ECR
+        run: |- 
+          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }}
