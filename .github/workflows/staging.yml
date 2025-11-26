@@ -30,14 +30,14 @@ jobs:
       
       - name: Build the Docker images
         run: |-
-          docker buildx build --platform linux/amd64 -f apps/fm-app/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} .
-          docker buildx build --platform linux/amd64 -f apps/db-meta/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} .
-          docker buildx build -f apps/web/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} .
-          docker buildx build -f apps/cms/Dockerfile -t ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }} .
+          docker buildx build --platform linux/amd64 -f apps/fm-app/Dockerfile -t ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} .
+          docker buildx build --platform linux/amd64 -f apps/db-meta/Dockerfile -t ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} .
+          docker buildx build -f apps/web/Dockerfile -t ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} .
+          docker buildx build -f apps/cms/Dockerfile -t ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }} .
       
       - name: Push Docker image to ECR
         run: |- 
-          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} 
-          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} 
-          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} 
-          docker push ${{ vars.AWS_PROJECT_ID }.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }}
+          docker push ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/fm-app:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/db-meta:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/web:${{ env.docker_tag }} 
+          docker push ${{ vars.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/cms:${{ env.docker_tag }}
